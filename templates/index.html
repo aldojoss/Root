@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Métodos Numéricos</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="container mt-5">
+    <h2>Método de Bisección</h2>
+    
+    <form method="POST" class="row g-3 mb-4">
+        <div class="col-md-4">
+            <label>Función (Ej: x**3 - x - 1)</label>
+            <input type="text" name="funcion" class="form-control" placeholder="x^3 - x - 1">
+        </div>
+        <div class="col-md-2">
+            <label>Límite Inferior (xl)</label>
+            <input type="number" step="any" name="xl" class="form-control" required placeholder="1">
+        </div>
+        <div class="col-md-2">
+            <label>Límite Superior (xu)</label>
+            <input type="number" step="any" name="xu" class="form-control" required placeholder="2">
+        </div>
+        <div class="col-md-2">
+            <label>Tolerancia (%)</label>
+            <input type="number" step="any" name="tol" class="form-control" required placeholder="0.01">
+        </div>
+        <div class="col-md-2">
+            <label>Max Iteraciones</label>
+            <input type="number" name="max_iter" class="form-control" required placeholder="50">
+        </div>
+        <div class="col-12">
+            <button type="submit" class="btn btn-primary">Calcular Raíz</button>
+        </div>
+    </form>
+
+    {% if datos %}
+        {% if datos.error %}
+            <div class="alert alert-warning shadow-sm border-warning">
+                <h5 class="alert-heading text-dark">{{ datos.titulo }}</h5>
+                <p class="mb-2 text-dark">{{ datos.mensaje }}</p>
+                <hr class="border-warning">
+                <p class="mb-0 text-muted"><strong>Consejo:</strong> {{ datos.consejo }}</p>
+            </div>
+        {% else %}
+            <div class="alert alert-success">
+                <strong>Raíz encontrada:</strong> {{ datos.raiz }}
+            </div>
+            
+            <table class="table table-bordered table-striped mt-3">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Iteración</th>
+                        <th>xl</th>
+                        <th>xu</th>
+                        <th>xr</th>
+                        <th>f(xl)</th>
+                        <th>f(xr)</th>
+                        <th>Error (%)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fila in datos.resultados %}
+                    <tr>
+                        <td>{{ fila.iteracion }}</td>
+                        <td>{{ fila.xl }}</td>
+                        <td>{{ fila.xu }}</td>
+                        <td>{{ fila.xr }}</td>
+                        <td>{{ fila.fxl }}</td>
+                        <td>{{ fila.fxr }}</td>
+                        <td>{{ fila.ea }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+    {% endif %}
+
+</body>
+</html>

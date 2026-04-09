@@ -7,24 +7,30 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" />
     <style>
       body {
-        min-height: 100vh;
-        display: flex;
-        flex-direction: column;
         background-color: #f8f9fa;
+        margin: 0; /* Aseguramos que no haya márgenes extra */
       }
+      
       .wrapper {
         display: flex;
-        flex: 1;
-        overflow: hidden;
+        min-height: 100vh; /* Permite que el contenedor crezca con el contenido */
       }
-      /* Estilos de la barra lateral */
+      
+      /* Estilos de la barra lateral (AHORA SÍ FUNCIONARÁ EL STICKY) */
       .sidebar {
-        width: 340px; /* Aumentamos el ancho para que quepa todo el texto */
+        width: 340px;
         background-color: #212529;
         color: white;
         padding-top: 20px;
-        flex-shrink: 0; /* Esto evita que la barra se aplaste en pantallas más pequeñas */
+        flex-shrink: 0;
+      
+        /* === LA MAGIA STICKY === */
+        position: sticky;
+        top: 0;
+        height: 100vh; /* Ocupa exactamente el alto de la pantalla visible */
+        overflow-y: auto; /* Solo pone scroll al menú si tienes demasiados métodos */
       }
+      
       .sidebar a {
         color: #ced4da;
         text-decoration: none;
@@ -41,26 +47,29 @@
         background-color: #0d6efd;
         color: white;
       }
-      /* Contenedor principal */
+      
+      /* Contenedor principal limpio */
       .content {
         flex: 1;
         padding: 30px;
-        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
       }
+      
       /* Ajuste para submenús */
       .submenu a {
         padding-left: 40px;
         font-size: 0.9em;
       }
+      
       /* Efecto de Matriz Gigante para el Inicio */
       .matrix-wrapper {
         position: relative;
         padding: 3rem 4rem;
-        margin: auto; /* Centra horizontalmente */
+        margin: auto;
         max-width: 900px;
         text-align: center;
       }
-      /* Estos son los "corchetes" de la matriz */
       .matrix-wrapper::before,
       .matrix-wrapper::after {
         content: '';
@@ -68,8 +77,8 @@
         top: 0;
         bottom: 0;
         width: 40px;
-        border: 6px solid #212529; /* Color oscuro que combina con tu barra lateral */
-        border-radius: 8px; /* Le da una pequeña curva en las esquinas */
+        border: 6px solid #212529;
+        border-radius: 8px;
       }
       .matrix-wrapper::before {
         left: 0;
@@ -78,15 +87,6 @@
       .matrix-wrapper::after {
         right: 0;
         border-left: none;
-      }
-      
-      /* Asegura que el contenedor principal ocupe toda la altura para el centrado vertical */
-      .content {
-        flex: 1;
-        padding: 30px;
-        overflow-y: auto;
-        display: flex;
-        flex-direction: column;
       }
     </style>
   </head>
@@ -112,15 +112,15 @@
 
           <div class="submenu mt-1">
             <a href="#submenuAbiertos" data-bs-toggle="collapse" class="d-flex justify-content-between align-items-center text-warning">Métodos Abiertos <i class="bi bi-chevron-down small"></i></a>
-            <div class="collapse" id="submenuAbiertos">
-              <a href="#">- Newton-Raphson</a>
-              <a href="#">- Secante</a>
+            <div class="collapse show" id="submenuAbiertos">
+              <a href="/newton">- Newton-Raphson</a>
+              <a href="/secante">- Secante</a>
               <a href="#">- Punto fijo</a>
             </div>
           </div>
         </div>
 
-        <a href="#" class="mt-2"><i class="bi bi-bar-chart-steps"></i> Series de Taylor</a>
+        <a href="/taylor" class="mt-2"><i class="bi bi-bar-chart-steps"></i> Series de Taylor</a>
       </nav>
 
       <main class="content">

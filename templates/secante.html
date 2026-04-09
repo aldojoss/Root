@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+
+{% block contenido %}
+  <div class="container bg-white p-4 rounded shadow-sm">
+    <h2 class="mb-4 text-info"><i class="bi bi-cursor"></i> Método de la Secante</h2>
+    <p class="text-muted">
+      Una alternativa a Newton-Raphson. Requiere dos valores iniciales (<strong class="text-dark">x0</strong> y <strong class="text-dark">x1</strong>) para aproximar la derivada mediante una línea secante, sin necesidad de calcularla analíticamente.
+    </p>
+
+    <form method="POST" class="row g-3 mb-4 align-items-end">
+      <div class="col-md-4">
+        <label class="fw-bold">Función f(x)</label>
+        <input type="text" name="funcion" class="form-control" required placeholder="x^3 - x - 1" />
+      </div>
+      <div class="col-md-2">
+        <label class="fw-bold text-orange">Valor (x0)</label>
+        <input type="number" step="any" name="x0" class="form-control border-warning shadow-sm" required placeholder="0" />
+      </div>
+      <div class="col-md-2">
+        <label class="fw-bold text-purple">Valor (x1)</label>
+        <input type="number" step="any" name="x1" class="form-control border-primary shadow-sm" required placeholder="1" />
+      </div>
+      <div class="col-md-2">
+        <label>Tolerancia (%)</label>
+        <input type="number" step="any" name="tol" class="form-control" required placeholder="0.01" />
+      </div>
+      <div class="col-md-2">
+        <label>Max Iteraciones</label>
+        <input type="number" name="max_iter" class="form-control" required placeholder="50" />
+      </div>
+      <div class="col-12 mt-4">
+        <button type="submit" class="btn btn-info text-white"><i class="bi bi-calculator"></i> Calcular Raíz</button>
+      </div>
+    </form>
+
+    <hr />
+
+    {% include '_resultados.html' %}
+  </div>
+{% endblock %}

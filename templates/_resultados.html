@@ -1,63 +1,125 @@
 {% if datos %}
-    {% if datos.error %}
-        <div class="alert alert-warning shadow-sm border-warning">
-            <h5 class="alert-heading text-dark">{{ datos.titulo }}</h5>
-            <p class="mb-2 text-dark">{{ datos.mensaje }}</p>
-            <hr class="border-warning">
-            <p class="mb-0 text-muted"><strong>Consejo:</strong> {{ datos.consejo }}</p>
-        </div>
+  {% if datos.error %}
+    {% if datos.link_sympy %}
+      <div class="alert alert-danger shadow-sm border-danger">
+        <h5 class="alert-heading text-danger"><i class="bi bi-exclamation-triangle-fill"></i> {{ datos.titulo }}</h5>
+        <p class="mb-2 text-dark">{{ datos.mensaje }}</p>
+        <hr class="border-danger opacity-25" />
+        <p class="mb-3 text-dark">
+          <strong>💡 Regla de Oro:</strong> {{ datos.consejo }}
+        </p>
+        <a href="{{ datos.link_sympy }}" target="_blank" class="btn btn-outline-danger btn-sm fw-bold"><i class="bi bi-book"></i> Leer Guía de SymPy (Gotchas)</a>
+      </div>
     {% else %}
-        <div class="row mb-4">
-            <div class="col-md-6">
-                <div class="alert alert-success h-100 d-flex flex-column justify-content-center">
-                    <h4 class="alert-heading">¡Raíz Encontrada!</h4>
-                    <p class="fs-4 mb-0 fw-bold">{{ datos.raiz }}</p>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="alert alert-info h-100 d-flex flex-column justify-content-center">
-                    <strong>Nivel de Convergencia:</strong>
-                    <p class="mb-0">{{ datos.convergencia }}</p>
-                </div>
-            </div>
-        </div>
-        
-        {% if datos.grafica %}
-            <div class="card shadow-sm mb-4">
-                <div class="card-header bg-dark text-white"><i class="bi bi-graph-up"></i> Gráfica de f(x)</div>
-                <div class="card-body text-center overflow-auto">
-                    <img src="data:image/png;base64,{{ datos.grafica }}" class="img-fluid" alt="Gráfica de la función">
-                </div>
-            </div>
-        {% endif %}
-        
-        <div class="table-responsive shadow-sm rounded">
-            <table class="table table-bordered table-hover text-center mb-0">
-                <thead class="table-dark">
-                    <tr>
-                        <th>Iteración</th>
-                        <th>xl</th>
-                        <th>xu</th>
-                        <th>xr</th>
-                        <th>f(xl)</th>
-                        <th>f(xr)</th>
-                        <th>Error (%)</th>
-                    </tr>
-                </thead>
-                <tbody class="table-group-divider">
-                    {% for fila in datos.resultados %}
-                    <tr>
-                        <td>{{ fila.iteracion }}</td>
-                        <td>{{ fila.xl }}</td>
-                        <td>{{ fila.xu }}</td>
-                        <td class="fw-bold text-primary">{{ fila.xr }}</td>
-                        <td>{{ fila.fxl }}</td>
-                        <td>{{ fila.fxr }}</td>
-                        <td>{{ fila.ea }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+      <div class="alert alert-warning shadow-sm border-warning">
+        <h5 class="alert-heading text-dark">{{ datos.titulo }}</h5>
+        <p class="mb-2 text-dark">{{ datos.mensaje }}</p>
+        <hr class="border-warning" />
+        <p class="mb-0 text-muted">
+          <strong>Consejo:</strong> {{ datos.consejo }}
+        </p>
+      </div>
     {% endif %}
+  {% else %}
+    <div class="row mb-4">
+      <div class="col-md-6">
+        <div class="alert alert-success h-100 d-flex flex-column justify-content-center">
+          <h4 class="alert-heading">¡Raíz Encontrada!</h4>
+          <p class="fs-4 mb-0 fw-bold">{{ datos.raiz }}</p>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="alert alert-info h-100 d-flex flex-column justify-content-center">
+          <strong>Nivel de Convergencia:</strong>
+          <p class="mb-0">{{ datos.convergencia }}</p>
+        </div>
+      </div>
+    </div>
+
+    {% if datos.grafica %}
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-dark text-white">
+          <i class="bi bi-graph-up"></i> Gráfica de f(x)
+        </div>
+        <div class="card-body text-center overflow-auto">
+          <img src="data:image/png;base64,{{ datos.grafica }}" class="img-fluid" alt="Gráfica de la función" />
+        </div>
+      </div>
+    {% endif %}
+
+    <div class="table-responsive shadow-sm rounded">
+      <table class="table table-bordered table-hover text-center mb-0">
+        <thead class="table-dark">
+          <tr>
+            {% if datos.tipo == 'taylor' %}
+              <th>Orden (n)</th>
+              <th>Derivada f^(n)(x)</th>
+              <th>f^(n)(x0)</th>
+              <th>Término Calculado</th>
+              <th>Aproximación Acumulada</th>
+              <th>Error Verdadero (%)</th>
+            {% else %}
+              <th>Iteración</th>
+              {% if datos.tipo == 'abierto' %}
+                <th>xi</th>
+                <th>f(xi)</th>
+                <th>f'(xi)</th>
+                <th>xi+1</th>
+              {% elif datos.tipo == 'secante' %}
+                <th>xi-1</th>
+                <th>xi</th>
+                <th>f(xi-1)</th>
+                <th>f(xi)</th>
+                <th>xi+1</th>
+              {% else %}
+                <th>xl</th>
+                <th>xu</th>
+                <th>xr</th>
+                <th>f(xl)</th>
+                <th>f(xr)</th>
+              {% endif %}
+              <th>Error (%)</th>
+            {% endif %}
+          </tr>
+        </thead>
+        <tbody class="table-group-divider">
+          {% for fila in datos.resultados %}
+            <tr>
+              {% if datos.tipo == 'taylor' %}
+                <td>{{ fila.orden }}</td>
+                <td>
+                  <small><code>{{ fila.derivada }}</code></small>
+                </td>
+                <td>{{ fila.df_x0 }}</td>
+                <td>{{ fila.termino }}</td>
+                <td class="fw-bold text-warning">{{ fila.aproximacion }}</td>
+                <td>{{ fila.et }}</td>
+              {% else %}
+                <td>{{ fila.iteracion }}</td>
+                {% if datos.tipo == 'abierto' %}
+                  <td>{{ fila.xi }}</td>
+                  <td>{{ fila.fxi }}</td>
+                  <td>{{ fila.dfxi }}</td>
+                  <td class="fw-bold text-success">{{ fila.x_siguiente }}</td>
+                {% elif datos.tipo == 'secante' %}
+                  <td>{{ fila.xi_menos_1 }}</td>
+                  <td>{{ fila.xi }}</td>
+                  <td>{{ fila.fxi_menos_1 }}</td>
+                  <td>{{ fila.fxi }}</td>
+                  <td class="fw-bold text-info">{{ fila.x_siguiente }}</td>
+                {% else %}
+                  <td>{{ fila.xl }}</td>
+                  <td>{{ fila.xu }}</td>
+                  <td class="fw-bold text-primary">{{ fila.xr }}</td>
+                  <td>{{ fila.fxl }}</td>
+                  <td>{{ fila.fxr }}</td>
+                {% endif %}
+                <td>{{ fila.ea }}</td>
+              {% endif %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
 {% endif %}

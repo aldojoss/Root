@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+
+{% block contenido %}
+  <div class="container bg-white p-4 rounded shadow-sm">
+    
+    <h2 class="mb-4 text-danger"><i class="bi bi-lightning-charge"></i> Método de Newton-Raphson</h2>
+    <p class="text-muted">Un método abierto súper rápido. Utiliza la tangente (derivada) de la función en un punto inicial <strong class="text-dark">x0</strong> para "deslizarse" rápidamente hacia la raíz.</p>
+
+    <form method="POST" class="row g-3 mb-4 align-items-end">
+      <div class="col-md-5">
+        <label class="fw-bold">Función f(x)</label>
+        <input type="text" name="funcion" class="form-control" required placeholder="x^3 - x - 1" />
+      </div>
+      <div class="col-md-2">
+        <label class="fw-bold text-orange">Valor Inicial (x0)</label>
+        <input type="number" step="any" name="x0" class="form-control border-warning shadow-sm" required placeholder="1" />
+      </div>
+      <div class="col-md-2">
+        <label>Tolerancia (%)</label>
+        <input type="number" step="any" name="tol" class="form-control" required placeholder="0.01" />
+      </div>
+      <div class="col-md-2">
+        <label>Max Iteraciones</label>
+        <input type="number" name="max_iter" class="form-control" required placeholder="50" />
+      </div>
+      <div class="col-12 mt-4">
+        <button type="submit" class="btn btn-danger"><i class="bi bi-calculator"></i> Calcular Raíz (N-R)</button>
+      </div>
+    </form>
+
+    <hr>
+
+    {% include '_resultados.html' %}
+
+  </div>
+{% endblock %}

@@ -55,6 +55,33 @@
         font-size: 0.9em;
       }
       
+      /* Efecto de Matriz Gigante para el Inicio */
+      .matrix-wrapper {
+        position: relative;
+        padding: 3rem 4rem;
+        margin: auto;
+        max-width: 900px;
+        text-align: center;
+      }
+      .matrix-wrapper::before,
+      .matrix-wrapper::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 40px;
+        border: 6px solid #212529;
+        border-radius: 8px;
+      }
+      .matrix-wrapper::before {
+        left: 0;
+        border-right: none;
+      }
+      .matrix-wrapper::after {
+        right: 0;
+        border-left: none;
+      }
+      
       /* === MAGIA RESPONSIVE (MEDIA QUERIES) === */
       @media (max-width: 768px) {
         .wrapper {
@@ -73,7 +100,7 @@
       }
       
       /* Obliga a cualquier elemento dentro del panel derecho a quedarse quieto, 
-               ignorando las clases de Bootstrap como sticky-top */
+                           ignorando las clases de Bootstrap como sticky-top */
       .content .sticky-top {
         position: static !important;
         z-index: auto !important;

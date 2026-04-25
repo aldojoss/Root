@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% block contenido %}
+  <div class="container bg-white p-4 rounded shadow-sm calculadora-numerica-widget mt-3">
+    <h2 class="mb-4" style="color: #e83e8c;"><i class="bi bi-curve-stripes"></i> Método de Müller</h2>
+    <p class="text-muted">Aproxima la raíz mediante una parábola que pasa por tres puntos. Es excelente para funciones con curvaturas pronunciadas.</p>
+    <form method="POST" class="row g-3 mb-4 align-items-end">
+      <div class="col-md-4">
+        <label class="fw-bold">Función f(x)</label>
+        <input type="text" name="funcion" class="form-control" required placeholder="x**3 - x - 1" />
+      </div>
+      <div class="col-md-1">
+        <label>x0</label>
+        <input type="number" step="any" name="x0" class="form-control" required placeholder="4.5" />
+      </div>
+      <div class="col-md-1">
+        <label>x1</label>
+        <input type="number" step="any" name="x1" class="form-control" required placeholder="5.5" />
+      </div>
+      <div class="col-md-1">
+        <label>x2</label>
+        <input type="number" step="any" name="x2" class="form-control" required placeholder="5.0" />
+      </div>
+      <div class="col-md-2">
+        <label>Tol (%)</label>
+        <input type="number" step="any" name="tol" class="form-control" required value="0.0001" />
+      </div>
+      <div class="col-md-3">
+        <label>Max Iteraciones</label>
+        <input type="number" name="max_iter" class="form-control" required value="50" />
+      </div>
+      <div class="col-12 mt-3">
+        <button type="submit" class="btn text-white" style="background-color: #e83e8c;">Calcular Raíz</button>
+      </div>
+    </form>
+    <hr />
+  </div>
+  <div class="container mt-3">
+    {% include '_resultados.html' %}
+  </div>
+{% endblock %}

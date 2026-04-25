@@ -48,7 +48,7 @@ def metodo_biseccion(funcion_str, xl, xu, tol, max_iter):
         return {
             "error": True,
             "titulo": "⚠️ Intervalo sin cambio de signo",
-            "mensaje": f"Evaluamos tus límites y obtuvimos f({xl}) = {round(fxl, 4)} y f({xu}) = {round(fxu, 4)}. Mismo signo.",
+            "mensaje": f"Evaluamos tus límites y obtuvimos f({xl}) = {round(fxl, 8)} y f({xu}) = {round(fxu, 8)}. Mismo signo.",
             "consejo": "Para la bisección, un resultado debe ser positivo y el otro negativo."
         }
 
@@ -67,12 +67,12 @@ def metodo_biseccion(funcion_str, xl, xu, tol, max_iter):
         # Guardamos los datos de esta iteración para la tabla
         resultados.append({
             "iteracion": i,
-            "xl": round(xl, 4),
-            "xu": round(xu, 4),
-            "xr": round(xr, 4),
-            "fxl": round(fxl, 4),
-            "fxr": round(fxr, 4),
-            "ea": round(ea, 4) if i > 1 else "---"
+            "xl": round(xl, 8),
+            "xu": round(xu, 8),
+            "xr": round(xr, 8),
+            "fxl": round(fxl, 8),
+            "fxr": round(fxr, 8),
+            "ea": round(ea, 8) if i > 1 else "---"
         })
 
         # Criterio de parada por tolerancia
@@ -104,7 +104,7 @@ def metodo_biseccion(funcion_str, xl, xu, tol, max_iter):
     # Dibujar los límites y la raíz
     plt.axvline(xl, color='orange', linestyle='--', label='xl final')
     plt.axvline(xu, color='purple', linestyle='--', label='xu final')
-    plt.plot(xr, 0, 'ro', markersize=8, label=f'Raíz ({round(xr, 4)})')
+    plt.plot(xr, 0, 'ro', markersize=8, label=f'Raíz ({round(xr, 8)})')
     
     plt.grid(color='gray', linestyle=':', linewidth=0.5)
     plt.legend()
@@ -119,12 +119,10 @@ def metodo_biseccion(funcion_str, xl, xu, tol, max_iter):
 
     return {
         "resultados": resultados, 
-        "raiz": round(xr, 4),
+        "raiz": round(xr, 8),
         "convergencia": "Lineal O(n) - El error se reduce a la mitad por iteración.",
         "grafica": grafica_url
     }
-
-    return {"resultados": resultados, "raiz": round(xr, 4)}
 
 # ==========================================
 # MÉTODO 2: REGLA FALSA (FALSA POSICIÓN)
@@ -166,7 +164,7 @@ def metodo_falsa_posicion(funcion_str, xl, xu, tol, max_iter):
         return {
             "error": True,
             "titulo": "⚠️ Intervalo sin cambio de signo",
-            "mensaje": f"Evaluamos tus límites y obtuvimos f({xl}) = {round(fxl, 4)} y f({xu}) = {round(fxu, 4)}. Mismo signo.",
+            "mensaje": f"Evaluamos tus límites y obtuvimos f({xl}) = {round(fxl, 8)} y f({xu}) = {round(fxu, 8)}. Mismo signo.",
             "consejo": "Para la bisección, un resultado debe ser positivo y el otro negativo."
         }
 
@@ -189,12 +187,12 @@ def metodo_falsa_posicion(funcion_str, xl, xu, tol, max_iter):
 
         resultados.append({
             "iteracion": i,
-            "xl": round(xl, 4),
-            "xu": round(xu, 4),
-            "xr": round(xr, 4),
-            "fxl": round(fxl, 4),
-            "fxr": round(fxr, 4),
-            "ea": round(ea, 4) if i > 1 else "---"
+            "xl": round(xl, 8),
+            "xu": round(xu, 8),
+            "xr": round(xr, 8),
+            "fxl": round(fxl, 8),
+            "fxr": round(fxr, 8),
+            "ea": round(ea, 8) if i > 1 else "---"
         })
 
         if i > 1 and ea < tol:
@@ -221,7 +219,7 @@ def metodo_falsa_posicion(funcion_str, xl, xu, tol, max_iter):
     
     plt.axvline(xl_original, color='orange', linestyle='--', label='xl inicial')
     plt.axvline(xu_original, color='purple', linestyle='--', label='xu inicial')
-    plt.plot(xr, 0, 'ro', markersize=8, label=f'Raíz ({round(xr, 4)})')
+    plt.plot(xr, 0, 'ro', markersize=8, label=f'Raíz ({round(xr, 8)})')
     
     plt.grid(color='gray', linestyle=':', linewidth=0.5)
     plt.legend()
@@ -235,7 +233,7 @@ def metodo_falsa_posicion(funcion_str, xl, xu, tol, max_iter):
 
     return {
         "resultados": resultados, 
-        "raiz": round(xr, 4),
+        "raiz": round(xr, 8),
         "convergencia": "Lineal (Suele ser más rápida que Bisección).",
         "grafica": grafica_url
     }
@@ -290,11 +288,11 @@ def metodo_newton_raphson(funcion_str, x0, tol, max_iter):
 
         resultados.append({
             "iteracion": i,
-            "xi": round(xi, 6),
-            "fxi": round(fxi, 6),
-            "dfxi": round(dfxi, 6),
-            "x_siguiente": round(x_siguiente, 6),
-            "ea": round(ea, 6) if i > 1 else "---"
+            "xi": round(xi, 8),
+            "fxi": round(fxi, 8),
+            "dfxi": round(dfxi, 8),
+            "x_siguiente": round(x_siguiente, 8),
+            "ea": round(ea, 8) if i > 1 else "---"
         })
 
         if i > 1 and ea < tol:
@@ -319,7 +317,7 @@ def metodo_newton_raphson(funcion_str, x0, tol, max_iter):
     plt.axhline(0, color='black', linewidth=1) 
     
     plt.axvline(x0, color='orange', linestyle='--', label='x0 inicial')
-    plt.plot(xi, 0, 'go', markersize=8, label=f'Raíz ({round(xi, 4)})') # Punto verde para la raíz
+    plt.plot(xi, 0, 'go', markersize=8, label=f'Raíz ({round(xi, 8)})') # Punto verde para la raíz
     
     plt.grid(color='gray', linestyle=':', linewidth=0.5)
     plt.legend()
@@ -334,7 +332,7 @@ def metodo_newton_raphson(funcion_str, x0, tol, max_iter):
     return {
         "tipo": "abierto", # ¡Clave para que nuestra tabla cambie las columnas!
         "resultados": resultados, 
-        "raiz": round(xi, 6),
+        "raiz": round(xi, 8),
         "convergencia": "Cuadrática O(n²) - ¡Es rapidísimo! Duplica los decimales correctos en cada paso.",
         "grafica": grafica_url
     }
@@ -383,12 +381,12 @@ def metodo_secante(funcion_str, x0, x1, tol, max_iter):
 
         resultados.append({
             "iteracion": i,
-            "xi_menos_1": round(xi_menos_1, 6),
-            "xi": round(xi, 6),
-            "fxi_menos_1": round(fxi_menos_1, 6),
-            "fxi": round(fxi, 6),
-            "x_siguiente": round(x_siguiente, 6),
-            "ea": round(ea, 6) if i > 1 else "---" # El primer error a veces no se calcula, pero lo dejamos por consistencia
+            "xi_menos_1": round(xi_menos_1, 8),
+            "xi": round(xi, 8),
+            "fxi_menos_1": round(fxi_menos_1, 8),
+            "fxi": round(fxi, 8),
+            "x_siguiente": round(x_siguiente, 8),
+            "ea": round(ea, 8) if i > 1 else "---" # El primer error a veces no se calcula, pero lo dejamos por consistencia
         })
 
         if ea < tol:
@@ -417,7 +415,7 @@ def metodo_secante(funcion_str, x0, x1, tol, max_iter):
     # Puntos iniciales
     plt.axvline(x0, color='orange', linestyle=':', label='x0 inicial')
     plt.axvline(x1, color='purple', linestyle=':', label='x1 inicial')
-    plt.plot(xi, 0, 'ro', markersize=8, label=f'Raíz ({round(xi, 4)})') 
+    plt.plot(xi, 0, 'ro', markersize=8, label=f'Raíz ({round(xi, 8)})') 
     
     plt.grid(color='gray', linestyle=':', linewidth=0.5)
     plt.legend()
@@ -432,7 +430,7 @@ def metodo_secante(funcion_str, x0, x1, tol, max_iter):
     return {
         "tipo": "secante", # Activa la nueva tabla en el HTML
         "resultados": resultados, 
-        "raiz": round(xi, 6),
+        "raiz": round(xi, 8),
         "convergencia": "Superlineal (Entre Bisección y Newton-Raphson).",
         "grafica": grafica_url
     }
@@ -484,10 +482,10 @@ def serie_taylor(funcion_str, x0, x_eval, orden):
         resultados.append({
             "orden": i,
             "derivada": str(derivada_actual).replace('**', '^'),
-            "df_x0": round(float(df_x0), 6),
-            "termino": round(float(valor_termino), 6),
-            "aproximacion": round(float(aproximacion), 6),
-            "et": round(float(et), 6)
+            "df_x0": round(float(df_x0), 8),
+            "termino": round(float(valor_termino), 8),
+            "aproximacion": round(float(aproximacion), 8),
+            "et": round(float(et), 8)
         })
 
         # Preparar la siguiente derivada
@@ -519,8 +517,8 @@ def serie_taylor(funcion_str, x0, x_eval, orden):
     plt.axvline(x0, color='orange', linestyle=':', label='x0 (Centro)')
     plt.axvline(x_eval, color='purple', linestyle=':', label='x a evaluar')
     
-    plt.plot(x_eval, valor_verdadero, 'ko', label=f'Valor Real ({round(float(valor_verdadero), 2)})')
-    plt.plot(x_eval, float(aproximacion), 'yo', label=f'Aprox ({round(float(aproximacion), 2)})')
+    plt.plot(x_eval, valor_verdadero, 'ko', label=f'Valor Real ({round(float(valor_verdadero), 8)})')
+    plt.plot(x_eval, float(aproximacion), 'yo', label=f'Aprox ({round(float(aproximacion), 8)})')
     
     plt.grid(color='gray', linestyle=':', linewidth=0.5)
     # Filtrar valores matemáticamente inválidos (NaN o Infinitos) antes de fijar la altura
@@ -540,7 +538,7 @@ def serie_taylor(funcion_str, x0, x_eval, orden):
     return {
         "tipo": "taylor", 
         "resultados": resultados, 
-        "raiz": round(float(aproximacion), 6), # Reusamos la tarjeta verde para mostrar la aproximación
+        "raiz": round(float(aproximacion), 8), # Reusamos la tarjeta verde para mostrar la aproximación
         "convergencia": "Aproximación Polinomial (A mayor orden n, menor es el error).",
         "grafica": grafica_url
     }
@@ -568,10 +566,10 @@ def metodo_punto_fijo(gx_str, x0, tol, max_iter):
         
         # Generamos el diagnóstico
         if criterio_convergencia < 1:
-            diagnostico = f"¡Excelente despeje! |g'(x0)| = {round(criterio_convergencia, 4)} < 1. Convergencia garantizada."
+            diagnostico = f"¡Excelente despeje! |g'(x0)| = {round(criterio_convergencia, 8)} < 1. Convergencia garantizada."
             color_diag = "success"
         else:
-            diagnostico = f"¡Alerta de Divergencia! |g'(x0)| = {round(criterio_convergencia, 4)} > 1. Es muy probable que la función explote al infinito."
+            diagnostico = f"¡Alerta de Divergencia! |g'(x0)| = {round(criterio_convergencia, 8)} > 1. Es muy probable que la función explote al infinito."
             color_diag = "danger"
 
     except Exception as err:
@@ -601,9 +599,9 @@ def metodo_punto_fijo(gx_str, x0, tol, max_iter):
 
         resultados.append({
             "iteracion": i,
-            "xi": round(xi, 6),
-            "gxi": round(gxi, 6),
-            "ea": round(ea, 6) if i > 1 else "---"
+            "xi": round(xi, 8),
+            "gxi": round(gxi, 8),
+            "ea": round(ea, 8) if i > 1 else "---"
         })
 
         if i > 1 and ea < tol:
@@ -638,7 +636,7 @@ def metodo_punto_fijo(gx_str, x0, tol, max_iter):
     plt.plot(x_vals, y_vals_identidad, label=f'y = x', color='gray', linestyle='--', linewidth=1.5) 
     plt.axhline(0, color='black', linewidth=1) 
     plt.axvline(x0, color='orange', linestyle=':', label='x0 inicial')
-    plt.plot(xi, xi, 'ro', markersize=8, label=f'Raíz ({round(xi, 4)})') 
+    plt.plot(xi, xi, 'ro', markersize=8, label=f'Raíz ({round(xi, 8)})') 
     
     plt.grid(color='gray', linestyle=':', linewidth=0.5)
     plt.legend()
@@ -653,9 +651,396 @@ def metodo_punto_fijo(gx_str, x0, tol, max_iter):
     return {
         "tipo": "punto_fijo", 
         "resultados": resultados, 
-        "raiz": round(xi, 6),
+        "raiz": round(xi, 8),
         "convergencia": diagnostico, # Mandamos el diagnóstico a la tarjeta azul
         "grafica": grafica_url
+    }
+    
+# ==========================================
+# MÉTODO 7: MÉTODO DE HORNER
+# ==========================================
+def metodo_horner(funcion_str, x0):
+    funcion_str = funcion_str.replace('^', '**').replace('x(', 'x*(').replace('X(', 'x*(')
+    x = sp.Symbol('x')
+    
+    try:
+        f_simbolica = sp.sympify(funcion_str)
+        
+        # Validación de seguridad: ¿Es realmente un polinomio?
+        if not f_simbolica.is_polynomial(x):
+            return {
+                "error": True,
+                "titulo": "🛑 Función No Polinomial",
+                "mensaje": "El Método de Horner es una técnica de división sintética que SOLO funciona con polinomios.",
+                "consejo": "Ingresa una función polinomial válida (Ej: 2*x**3 - 4*x**2 + x - 5). No uses fracciones con x en el denominador, trigonométricas o logaritmos."
+            }
+            
+        polinomio = sp.Poly(f_simbolica, x)
+        coeffs = polinomio.all_coeffs() # Extrae todos los coeficientes, incluyendo ceros implícitos
+        n = polinomio.degree()
+        
+    except Exception as err:
+        return {
+            "error": True,
+            "titulo": "🛑 Error de Sintaxis Matemática",
+            "mensaje": f"No se pudo evaluar el polinomio. Detalle: {str(err)}",
+            "consejo": "Asegúrate de escribir el polinomio correctamente."
+        }
+
+    resultados = []
+    
+    # La primera iteración (b_n = a_n)
+    b_actual = float(coeffs[0])
+    resultados.append({
+        "grado": n,
+        "a": round(float(coeffs[0]), 8),
+        "operacion": "---",
+        "b": round(b_actual, 8)
+    })
+    
+    # El ciclo de Horner
+    for i in range(1, len(coeffs)):
+        grado_actual = n - i
+        a_i = float(coeffs[i])
+        operacion = b_actual * x0
+        b_nuevo = a_i + operacion
+        
+        resultados.append({
+            "grado": grado_actual,
+            "a": round(a_i, 8),
+            "operacion": round(operacion, 8),
+            "b": round(b_nuevo, 8)
+        })
+        b_actual = b_nuevo
+
+    # === GENERAR LA GRÁFICA ===
+    f_numpy = sp.lambdify(x, f_simbolica, 'numpy') 
+    margen = abs(x0) * 0.5 if x0 != 0 else 5
+    x_min = x0 - margen - 2
+    x_max = x0 + margen + 2
+    
+    x_vals = np.linspace(x_min, x_max, 200)
+    y_vals = f_numpy(x_vals)
+
+    plt.figure(figsize=(8, 4))
+    plt.plot(x_vals, y_vals, label=f'P(x)', color='#fd7e14', linewidth=2) # Naranja para Horner
+    plt.axhline(0, color='black', linewidth=1) 
+    
+    # Dibujar el punto evaluado
+    plt.axvline(x0, color='gray', linestyle=':', label=f'x0 = {x0}')
+    plt.plot(x0, b_actual, 'bo', markersize=8, label=f'P({x0}) = {round(b_actual, 4)}') 
+    
+    plt.grid(color='gray', linestyle=':', linewidth=0.5)
+    plt.legend()
+    plt.tight_layout()
+
+    img = io.BytesIO()
+    plt.savefig(img, format='png', transparent=True)
+    img.seek(0)
+    grafica_url = base64.b64encode(img.getvalue()).decode('utf8')
+    plt.close()
+
+    return {
+        "tipo": "horner", 
+        "resultados": resultados, 
+        "raiz": round(b_actual, 8), # Usamos el espacio de "raíz" para mostrar el residuo/evaluación final
+        "convergencia": "Evaluación Polinomial / División Sintética Exitosa.",
+        "grafica": grafica_url
+    }
+    
+# ==========================================
+# MÉTODO 8: HORNER-NEWTON (BIRGE-VIETA)
+# ==========================================
+def metodo_horner_newton(funcion_str, x0, tol, max_iter):
+    funcion_str = funcion_str.replace('^', '**').replace('x(', 'x*(').replace('X(', 'x*(')
+    x = sp.Symbol('x')
+    
+    try:
+        f_simbolica = sp.sympify(funcion_str)
+        
+        # Validación de seguridad: ¡Solo polinomios!
+        if not f_simbolica.is_polynomial(x):
+            return {
+                "error": True,
+                "titulo": "🛑 Función No Polinomial",
+                "mensaje": "El Método de Horner-Newton utiliza doble división sintética y SOLO funciona con polinomios.",
+                "consejo": "Ingresa una función polinomial válida (Ej: x**3 - 2*x**2 - 5). No uses fracciones, senos o logaritmos."
+            }
+            
+        polinomio = sp.Poly(f_simbolica, x)
+        coeffs = polinomio.all_coeffs() 
+        f_numpy = sp.lambdify(x, f_simbolica, 'numpy') 
+        
+    except Exception as err:
+        return {
+            "error": True,
+            "titulo": "🛑 Error de Sintaxis Matemática",
+            "mensaje": f"No se pudo evaluar el polinomio. Detalle: {str(err)}",
+            "consejo": "Asegúrate de escribir el polinomio correctamente."
+        }
+
+    # Función auxiliar para hacer la división sintética rápida
+    def division_sintetica(coeficientes, valor_x):
+        b = [float(coeficientes[0])]
+        for j in range(1, len(coeficientes)):
+            b.append(float(coeficientes[j]) + b[-1] * valor_x)
+        return b[-1], b[:-1] # Retorna (Residuo, Coeficientes del Cociente)
+
+    resultados = []
+    xi = float(x0)
+
+    for i in range(1, max_iter + 1):
+        # Horner 1: Sacamos P(xi) y el polinomio cociente Q(x)
+        pxi, q_coeffs = division_sintetica(coeffs, xi)
+        
+        # Horner 2: Evaluamos el cociente Q(x) para sacar la derivada P'(xi)
+        dpxi, _ = division_sintetica(q_coeffs, xi)
+        
+        if dpxi == 0:
+            return {
+                "error": True,
+                "titulo": "⚠️ Derivada Cero (Línea Horizontal)",
+                "mensaje": f"En la iteración {i}, la segunda división sintética (derivada) dio 0.",
+                "consejo": "El método falla porque genera división por cero. Intenta con un x0 diferente."
+            }
+
+        # Fórmula de Newton usando los residuos de Horner
+        x_siguiente = xi - (pxi / dpxi)
+        
+        ea = abs((x_siguiente - xi) / x_siguiente) * 100 if x_siguiente != 0 else 100
+
+        resultados.append({
+            "iteracion": i,
+            "xi": round(xi, 8),
+            "pxi": round(pxi, 8),
+            "dpxi": round(dpxi, 8),
+            "x_siguiente": round(x_siguiente, 8),
+            "ea": round(ea, 8) if i > 1 else "---"
+        })
+
+        if i > 1 and ea < tol:
+            xi = x_siguiente
+            break
+            
+        xi = x_siguiente
+
+    # === GENERAR LA GRÁFICA ===
+    margen = abs(xi - x0) * 0.5 if abs(xi - x0) > 0 else 2
+    x_min = min(x0, xi) - margen
+    x_max = max(x0, xi) + margen
+    
+    x_vals = np.linspace(x_min, x_max, 200)
+    y_vals = f_numpy(x_vals)
+
+    altura_maxima = max(abs(f_numpy(x_min)), abs(f_numpy(x_max))) * 3
+    y_vals = np.clip(y_vals, -altura_maxima, altura_maxima)
+
+    plt.figure(figsize=(8, 4))
+    plt.plot(x_vals, y_vals, label=f'P(x)', color='#20c997', linewidth=2) # Color Teal
+    plt.axhline(0, color='black', linewidth=1) 
+    
+    plt.axvline(x0, color='orange', linestyle='--', label='x0 inicial')
+    plt.plot(xi, 0, 'go', markersize=8, label=f'Raíz ({round(xi, 8)})') 
+    
+    plt.grid(color='gray', linestyle=':', linewidth=0.5)
+    plt.legend()
+    plt.tight_layout()
+
+    img = io.BytesIO()
+    plt.savefig(img, format='png', transparent=True)
+    img.seek(0)
+    grafica_url = base64.b64encode(img.getvalue()).decode('utf8')
+    plt.close()
+
+    return {
+        "tipo": "horner_newton", 
+        "resultados": resultados, 
+        "raiz": round(xi, 8),
+        "convergencia": "Cuadrática O(n²) usando Doble División Sintética.",
+        "grafica": grafica_url
+    }
+    
+# ==========================================
+# MÉTODO 9: MÉTODO DE MÜLLER
+# ==========================================
+def metodo_muller(funcion_str, x0, x1, x2, tol, max_iter):
+    funcion_str = funcion_str.replace('^', '**').replace('ln', 'log').replace('x(', 'x*(').replace('X(', 'x*(')
+    x = sp.Symbol('x')
+    
+    try:
+        diccionario_matematico = {'e': sp.E, 'pi': sp.pi}
+        f_simbolica = sp.sympify(funcion_str, locals=diccionario_matematico)
+        f = sp.lambdify(x, f_simbolica, 'numpy') 
+    except Exception as err:
+        return {
+            "error": True,
+            "titulo": "🛑 Error de Sintaxis",
+            "mensaje": f"No se pudo evaluar la función. Detalle: {str(err)}",
+            "consejo": "Usa '*' para multiplicar y 'exp(x)' para la base e."
+        }
+
+    resultados = []
+    # Usamos números complejos internamente por si la raíz lo requiere
+    h0 = x1 - x0
+    h1 = x2 - x1
+    d0 = (f(x1) - f(x0)) / h0
+    d1 = (f(x2) - f(x1)) / h1
+    a = (d1 - d0) / (h1 + h0)
+
+    for i in range(1, max_iter + 1):
+        b = d1 + h1 * a
+        c = f(x2)
+        
+        # Discriminante
+        discriminante = np.lib.scimath.sqrt(b**2 - 4*a*c)
+        
+        # Elegimos el signo que maximice el denominador
+        if abs(b + discriminante) > abs(b - discriminante):
+            denominador = b + discriminante
+        else:
+            denominador = b - discriminante
+            
+        dx = -2 * c / denominador
+        x3 = x2 + dx
+        
+        # Error aproximado
+        ea = abs(dx / x3) * 100 if x3 != 0 else 100
+        
+        resultados.append({
+            "iteracion": i,
+            "x0": round(complex(x0).real, 8),
+            "x1": round(complex(x1).real, 8),
+            "x2": round(complex(x2).real, 8),
+            "xr": round(complex(x3).real, 8),
+            "fxr": round(complex(f(x3)).real, 8),
+            "ea": round(complex(ea).real, 8) if i > 1 else "---"
+        })
+
+        if i > 1 and ea < tol:
+            break
+            
+        # Actualizamos puntos para la siguiente iteración
+        x0, x1, x2 = x1, x2, x3
+        h0 = x1 - x0
+        h1 = x2 - x1
+        d0 = (f(x1) - f(x0)) / h0
+        d1 = (f(x2) - f(x1)) / h1
+        a = (d1 - d0) / (h1 + h0)
+
+    # Gráfica
+    margen = 2
+    x_min = min(x0.real, x1.real, x2.real) - margen
+    x_max = max(x0.real, x1.real, x2.real) + margen
+    x_vals = np.linspace(x_min, x_max, 200)
+    y_vals = f(x_vals)
+
+    plt.figure(figsize=(8, 4))
+    plt.plot(x_vals, y_vals, label='f(x)', color='#e83e8c', linewidth=2) # Rosado para Müller
+    plt.axhline(0, color='black', linewidth=1)
+    plt.plot(x3.real, 0, 'ro', markersize=8, label=f'Raíz ({round(x3.real, 4)})')
+    plt.grid(color='gray', linestyle=':', linewidth=0.5)
+    plt.legend()
+    plt.tight_layout()
+
+    img = io.BytesIO()
+    plt.savefig(img, format='png', transparent=True)
+    img.seek(0)
+    grafica_url = base64.b64encode(img.getvalue()).decode('utf8')
+    plt.close()
+
+    return {
+        "tipo": "muller",
+        "resultados": resultados,
+        "raiz": round(x3.real, 8),
+        "convergencia": "Superlineal (Casi cuadrática). Puede encontrar raíces complejas.",
+        "grafica": grafica_url
+    }
+    
+# ==========================================
+# MÉTODO 10: MÉTODO DE BAIRSTOW (CORREGIDO)
+# ==========================================
+def metodo_bairstow(funcion_str, r, s, tol, max_iter):
+    funcion_str = funcion_str.replace('^', '**').replace('x(', 'x*(').replace('X(', 'x*(')
+    x = sp.Symbol('x')
+    
+    try:
+        f_simbolica = sp.sympify(funcion_str)
+        if not f_simbolica.is_polynomial(x):
+            return {
+                "error": True,
+                "titulo": "🛑 No es un Polinomio",
+                "mensaje": "Bairstow solo funciona con funciones polinomiales."
+            }
+        polinomio = sp.Poly(f_simbolica, x)
+        a = [float(c) for c in polinomio.all_coeffs()]
+        a.reverse() 
+        n = len(a) - 1
+    except Exception as err:
+        return {"error": True, "titulo": "🛑 Error", "mensaje": str(err)}
+
+    resultados = []
+    current_r, current_s = float(r), float(s)
+
+    for i in range(1, max_iter + 1):
+        b = [0.0] * (n + 1)
+        c = [0.0] * (n + 1)
+
+        b[n] = a[n]
+        b[n-1] = a[n-1] + current_r * b[n]
+        for j in range(n-2, -1, -1):
+            b[j] = a[j] + current_r * b[j+1] + current_s * b[j+2]
+
+        c[n] = b[n]
+        c[n-1] = b[n-1] + current_r * c[n]
+        
+        # 🐛 EL BUG ESTABA AQUÍ: Cambiamos el 1 por un 0. ¡Ahora c[1] sí nace!
+        for j in range(n-2, 0, -1): 
+            c[j] = b[j] + current_r * c[j+1] + current_s * c[j+2]
+
+        det = c[2]*c[2] - c[3]*c[1]
+        
+        # Seguro anti-estancamiento
+        if det == 0:
+            current_r += 0.01
+            current_s += 0.01
+            continue 
+        
+        dr = (-b[1]*c[2] - (-b[0]*c[3])) / det
+        ds = (c[2]*(-b[0]) - c[1]*(-b[1])) / det
+
+        current_r += dr
+        current_s += ds
+
+        ea_r = abs(dr / current_r) * 100 if current_r != 0 else 100
+        ea_s = abs(ds / current_s) * 100 if current_s != 0 else 100
+        ea_max = max(ea_r, ea_s)
+
+        resultados.append({
+            "iteracion": i,
+            "r": round(current_r, 8),
+            "s": round(current_s, 8),
+            "ea": round(ea_max, 8) if i > 1 else "---"
+        })
+
+        if ea_max < tol:
+            break
+
+    disc = current_r**2 + 4 * current_s
+    if disc >= 0:
+        x1 = (current_r + math.sqrt(disc)) / 2
+        x2 = (current_r - math.sqrt(disc)) / 2
+        raiz_str = f"x1: {round(x1, 8)}, x2: {round(x2, 8)}"
+    else:
+        real = current_r / 2
+        imag = math.sqrt(-disc) / 2
+        raiz_str = f"x1,2: {round(real, 8)} ± {round(imag, 8)}i"
+
+    return {
+        "tipo": "bairstow",
+        "resultados": resultados,
+        "raiz": raiz_str,
+        "convergencia": f"Factor cuadrático hallado: x² - ({round(current_r, 4)})x - ({round(current_s, 4)})",
+        "grafica": None
     }
 
 # Rutas denavegación
@@ -663,7 +1048,6 @@ def metodo_punto_fijo(gx_str, x0, tol, max_iter):
 def inicio():
     return render_template('index.html')
 
-# Ruta 2: Calculadora de Bisección
 @app.route('/biseccion', methods=['GET', 'POST'])
 def biseccion():
     datos = None
@@ -678,7 +1062,6 @@ def biseccion():
         
     return render_template('biseccion.html', datos=datos)
 
-# RUTA PARA LA PÁGINA DE REGLA FALSA
 @app.route('/falsa_posicion', methods=['GET', 'POST'])
 def falsa_posicion():
     datos = None
@@ -745,6 +1128,55 @@ def punto_fijo():
         datos = metodo_punto_fijo(gx, x0, tol, max_iter)
         
     return render_template('punto_fijo.html', datos=datos)
+
+@app.route('/horner', methods=['GET', 'POST'])
+def horner():
+    datos = None
+    if request.method == 'POST':
+        funcion = request.form['funcion']
+        x0 = float(request.form['x0'])
+        
+        datos = metodo_horner(funcion, x0)
+        
+    return render_template('horner.html', datos=datos)
+
+@app.route('/horner_newton', methods=['GET', 'POST'])
+def horner_newton():
+    datos = None
+    if request.method == 'POST':
+        funcion = request.form['funcion']
+        x0 = float(request.form['x0'])
+        tol = float(request.form['tol'])
+        max_iter = int(request.form['max_iter'])
+        
+        datos = metodo_horner_newton(funcion, x0, tol, max_iter)
+        
+    return render_template('horner_newton.html', datos=datos)
+
+@app.route('/muller', methods=['GET', 'POST'])
+def muller():
+    datos = None
+    if request.method == 'POST':
+        funcion = request.form['funcion']
+        x0 = float(request.form['x0'])
+        x1 = float(request.form['x1'])
+        x2 = float(request.form['x2'])
+        tol = float(request.form['tol'])
+        max_iter = int(request.form['max_iter'])
+        datos = metodo_muller(funcion, x0, x1, x2, tol, max_iter)
+    return render_template('muller.html', datos=datos)
+
+@app.route('/bairstow', methods=['GET', 'POST'])
+def bairstow():
+    datos = None
+    if request.method == 'POST':
+        funcion = request.form['funcion']
+        r = float(request.form['r'])
+        s = float(request.form['s'])
+        tol = float(request.form['tol'])
+        max_iter = int(request.form['max_iter'])
+        datos = metodo_bairstow(funcion, r, s, tol, max_iter)
+    return render_template('bairstow.html', datos=datos)
 
 if __name__ == '__main__':
     app.run(debug=True)

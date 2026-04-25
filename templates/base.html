@@ -100,7 +100,7 @@
       }
       
       /* Obliga a cualquier elemento dentro del panel derecho a quedarse quieto, 
-                           ignorando las clases de Bootstrap como sticky-top */
+                                 ignorando las clases de Bootstrap como sticky-top */
       .content .sticky-top {
         position: static !important;
         z-index: auto !important;
@@ -119,7 +119,7 @@
           <a href="/"><i class="bi bi-house-door"></i> Inicio</a>
 
           <a href="#submenuRaices" data-bs-toggle="collapse" class="d-flex justify-content-between align-items-center mt-2">
-            <span><i class="bi bi-graph-up"></i> Raíces de Ecuaciones</span>
+            <span><i class="bi bi-graph-up"></i> Raíces de Ecuaciones No Lineales</span>
             <i class="bi bi-chevron-down small"></i>
           </a>
           <div class="collapse show" id="submenuRaices">
@@ -137,11 +137,15 @@
                 <a href="/newton">- Newton-Raphson</a>
                 <a href="/secante">- Secante</a>
                 <a href="/punto_fijo">- Punto fijo</a>
+                <a href="/muller">- Muller</a>
+                <a href="/horner_newton">- Horner-Newton</a>
               </div>
             </div>
           </div>
 
           <a href="/taylor" class="mt-2"><i class="bi bi-bar-chart-steps"></i> Series de Taylor</a>
+          <a href="/horner" class="mt-2"><i class="bi bi-layout-three-columns"></i> Método de Horner</a>
+          <a href="/bairstow" class="mt-2"><i class="bi bi-braces-asterisk"></i> Método de Bairstow</a>
         </div>
       </nav>
 

@@ -66,6 +66,11 @@
                 <th>f(xi)</th>
                 <th>f'(xi)</th>
                 <th>xi+1</th>
+              {% elif datos.tipo == 'horner_newton' %}
+                <th>xi</th>
+                <th>P(xi) (Horner 1)</th>
+                <th>P'(xi) (Horner 2)</th>
+                <th>xi+1</th>
               {% elif datos.tipo == 'secante' %}
                 <th>xi-1</th>
                 <th>xi</th>
@@ -75,6 +80,22 @@
               {% elif datos.tipo == 'punto_fijo' %}
                 <th>xi</th>
                 <th>g(xi) = xi+1</th>
+              {% elif datos.tipo == 'horner' %}
+                <th>Potencia</th>
+                <th>Coeficiente Original (a)</th>
+                <th>Operación (x0 * b_ant)</th>
+                <th>Nuevo Coeficiente (b)</th>
+              {% elif datos.tipo == 'muller' %}
+                <th>x0</th>
+                <th>x1</th>
+                <th>x2</th>
+                <th>xr (x3)</th>
+                <th>f(xr)</th>
+              {% elif datos.tipo == 'bairstow' %}
+                <th>Iteración</th>
+                <th>Valor r</th>
+                <th>Valor s</th>
+                <th>Error Máx (%)</th>
               {% else %}
                 <th>xl</th>
                 <th>xu</th>
@@ -107,6 +128,11 @@
                   <td>{{ fila.fxi }}</td>
                   <td>{{ fila.dfxi }}</td>
                   <td class="fw-bold text-success">{{ fila.x_siguiente }}</td>
+                {% elif datos.tipo == 'horner_newton' %}
+                  <td>{{ fila.xi }}</td>
+                  <td>{{ fila.pxi }}</td>
+                  <td>{{ fila.dpxi }}</td>
+                  <td class="fw-bold text-success">{{ fila.x_siguiente }}</td>
                 {% elif datos.tipo == 'secante' %}
                   <td>{{ fila.xi_menos_1 }}</td>
                   <td>{{ fila.xi }}</td>
@@ -116,6 +142,24 @@
                 {% elif datos.tipo == 'punto_fijo' %}
                   <td>{{ fila.xi }}</td>
                   <td class="fw-bold text-primary">{{ fila.gxi }}</td>
+                {% elif datos.tipo == 'horner' %}
+                  <td>
+                    <small class="text-muted">x^{{ fila.grado }}</small>
+                  </td>
+                  <td>{{ fila.a }}</td>
+                  <td>{{ fila.operacion }}</td>
+                  <td class="fw-bold text-success">{{ fila.b }}</td>
+                {% elif datos.tipo == 'muller' %}
+                  <td>{{ fila.x0 }}</td>
+                  <td>{{ fila.x1 }}</td>
+                  <td>{{ fila.x2 }}</td>
+                  <td class="fw-bold text-danger">{{ fila.xr }}</td>
+                  <td>{{ fila.fxr }}</td>
+                {% elif datos.tipo == 'bairstow' %}
+                  <td>{{ fila.iteracion }}</td>
+                  <td class="text-primary fw-bold">{{ fila.r }}</td>
+                  <td class="text-info fw-bold">{{ fila.s }}</td>
+                  <td>{{ fila.ea }}</td>
                 {% else %}
                   <td>{{ fila.xl }}</td>
                   <td>{{ fila.xu }}</td>

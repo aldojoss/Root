@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+
+{% block contenido %}
+  <div class="container bg-white p-4 rounded shadow-sm calculadora-numerica-widget mt-3">
+    <h2 class="mb-4" style="color: #20c997;"><i class="bi bi-intersect"></i> Método de Horner-Newton (Birge-Vieta)</h2>
+    <p class="text-muted">
+      Encuentra raíces de polinomios aplicando el Método de Newton-Raphson, pero en lugar de derivar analíticamente, utiliza una doble división sintética (Horner) en cada iteración para hallar <strong class="text-dark">P(x)</strong> y <strong class="text-dark">P'(x)</strong> de forma ultraeficiente.
+    </p>
+
+    <form method="POST" class="row g-3 mb-4 align-items-end">
+      <div class="col-md-5">
+        <label class="fw-bold" style="color: #20c997;">Polinomio P(x)</label>
+        <input type="text" name="funcion" class="form-control border-secondary shadow-sm" required placeholder="Ej: x**3 - 2*x**2 - 5" title="Ingresa un polinomio válido" />
+      </div>
+      <div class="col-md-2">
+        <label class="fw-bold text-orange">Valor Inicial (x0)</label>
+        <input type="number" step="any" name="x0" class="form-control" required placeholder="2" />
+      </div>
+      <div class="col-md-2">
+        <label>Tolerancia (%)</label>
+        <input type="number" step="any" name="tol" class="form-control" required placeholder="0.01" />
+      </div>
+      <div class="col-md-3">
+        <label>Max Iteraciones</label>
+        <input type="number" name="max_iter" class="form-control" required placeholder="50" />
+      </div>
+      <div class="col-12 mt-4">
+        <button type="submit" class="btn text-white shadow-sm" style="background-color: #20c997;"><i class="bi bi-calculator"></i> Calcular Raíz</button>
+      </div>
+    </form>
+
+    <hr />
+  </div>
+
+  <div class="container mt-3">
+    {% include '_resultados.html' %}
+  </div>
+{% endblock %}

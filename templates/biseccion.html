@@ -2,14 +2,13 @@
 
 {% block contenido %}
   <div class="container bg-white p-4 rounded shadow-sm">
-    
     <h2 class="mb-4 text-primary"><i class="bi bi-arrows-collapse"></i> Método de Bisección</h2>
 
     <form method="POST" class="row g-3 mb-4">
-      <div class="col-md-4">
+      <!--<div class="col-md-4">
         <label>Función (Ej: x**3 - x - 1)</label>
         <input type="text" name="funcion" class="form-control" required placeholder="x^3 - x - 1" />
-      </div>
+      </div>-->
       <div class="col-md-2">
         <label>Límite Inferior (xl)</label>
         <input type="number" step="any" name="xl" class="form-control" required placeholder="1" />
@@ -26,14 +25,14 @@
         <label>Max Iteraciones</label>
         <input type="number" name="max_iter" class="form-control" required placeholder="50" />
       </div>
+      {% include '_math_input.html' %}
       <div class="col-12">
         <button type="submit" class="btn btn-primary"><i class="bi bi-calculator"></i> Calcular Raíz</button>
       </div>
     </form>
 
-    <hr>
+    <hr />
 
     {% include '_resultados.html' %}
-
   </div>
 {% endblock %}

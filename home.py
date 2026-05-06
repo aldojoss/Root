@@ -7,40 +7,72 @@ import matplotlib.pyplot as plt
 import io
 import base64
 import math
+from sympy import symbols, lambdify
+from sympy.parsing.latex import parse_latex
+import matplotlib.pyplot as plt
 
 app = Flask(__name__)
 
-def metodo_biseccion(funcion_str, xl, xu, tol, max_iter):
-    # 1. Limpieza de la función
-    funcion_str = funcion_str.replace('^', '**').replace('ln', 'log').replace('x(', 'x*(').replace('X(', 'x*(')
+# --- FUNCIÓN AUXILIAR PARA TRADUCIR LATEX ---
+def procesar_ecuacion(latex_str):
+    """
+    Toma una cadena LaTeX, la convierte en una expresión de SymPy 
+    y luego en una función evaluable por Python/NumPy.
+    """
+    # Definimos 'x' como la variable matemática
+    x = symbols('x')
+    
+    # 1. Convertimos el texto LaTeX a una expresión matemática de SymPy
+    # Ejemplo: "\frac{x^2}{2}" se vuelve x**2 / 2
+    expresion_sympy = parse_latex(latex_str)
+    
+    # 2. Convertimos esa expresión a una función real de Python que usa NumPy
+    # Esto nos permite pasarle valores: f(5), f(2.3), etc.
+    funcion_evaluable = lambdify(x, expresion_sympy, modules=['numpy', 'math'])
+    
+    # Retornamos ambas cosas: la función para evaluar y la expresión por si 
+    # ocupamos derivarla (como en el método de Newton)
+    return funcion_evaluable, expresion_sympy, x
+
+def metodo_biseccion(latex_str, xl, xu, tol, max_iter):
     x = sp.Symbol('x')
     
+    # --- BLOQUEO DE SEGURIDAD ---
+    # Si llega vacío, cortamos de una vez
+    if not latex_str or latex_str.strip() == "":
+        return {
+            "error": True,
+            "titulo": "🛑 Ecuación vacía",
+            "mensaje": "No se recibió ninguna ecuación.",
+            "consejo": "Por favor, escribe la función en la pizarra virtual antes de calcular."
+        }
+    
     try:
-        # 2. Traducción matemática (Forzando la 'e')
-        diccionario_matematico = {'e': sp.E, 'pi': sp.pi}
-        funcion_simbolica = sp.sympify(funcion_str, locals=diccionario_matematico)
+        # === LIMPIEZA EXTREMA DEL LATEX ===
+        latex_limpio = latex_str.replace(r'\mathrm{e}', 'e')
+        latex_limpio = latex_limpio.replace(r'\exponentialE', 'e')
+        latex_limpio = latex_limpio.replace(r'\cdot', '*') 
         
-        # Un seguro extra por si la 'e' se escapa
+        # Traducimos
+        funcion_simbolica = parse_latex(latex_limpio)
         funcion_simbolica = funcion_simbolica.subs(sp.Symbol('e'), sp.E)
-        
         f = sp.lambdify(x, funcion_simbolica, 'numpy') 
 
-        # 3. LA PRUEBA DE FUEGO: Evaluamos los límites AQUÍ ADENTRO
         xl_original = xl
         xu_original = xu
         
-        # Obligamos a que el resultado sea un número decimal (float)
-        # Si la función tiene errores o letras sueltas, esto fallará y activará la alerta roja
         fxl = float(f(xl))
         fxu = float(f(xu))
 
     except Exception as err:
+        # ¡ESTO ES VITAL! Imprimirá en tu terminal negra de VS Code el texto exacto que causó el error
+        print(f"==============\n🛑 FALLA AL PARSEAR:\nTexto original: '{latex_str}'\nTexto limpio: '{latex_limpio}'\n==============") 
+        
         return {
             "error": True,
             "titulo": "🛑 Error de Sintaxis Matemática",
-            "mensaje": f"No se pudo calcular la función. Detalle técnico: {str(err)}",
-            "consejo": "Recuerda usar '*' para multiplicar (ej: 2*x) y usar 'exp(x)' en lugar de la letra 'e'.",
-            "link_sympy": "https://docs.sympy.org/latest/tutorials/intro-tutorial/gotchas.html"
+            "mensaje": f"SymPy no pudo entender la función. Detalle: {str(err)}",
+            "consejo": "Revisa la consola (terminal) de VS Code para ver qué texto exacto envió MathLive."
         }
 
     # === Si llegamos aquí, los números son perfectos ===
@@ -88,22 +120,20 @@ def metodo_biseccion(funcion_str, xl, xu, tol, max_iter):
             break # Encontramos la raíz exacta
             
         xr_anterior = xr
-        
-        # ... (Aquí termina el ciclo for de la bisección)
 
     # === GENERAR LA GRÁFICA ===
-    # Creamos un arreglo de puntos X para dibujar la curva
-    margen = (xu - xl) * 0.5 if 'xu_original' in locals() else 2
-    x_vals = np.linspace(xl - margen, xu + margen, 200)
+    # Usamos los valores originales para que la gráfica no se corte
+    margen = (xu_original - xl_original) * 0.5 
+    x_vals = np.linspace(xl_original - margen, xu_original + margen, 200)
     y_vals = f(x_vals)
 
     plt.figure(figsize=(8, 4))
-    plt.plot(x_vals, y_vals, label=f'f(x)', color='#0d6efd', linewidth=2)
+    plt.plot(x_vals, y_vals, label='f(x)', color='#0d6efd', linewidth=2)
     plt.axhline(0, color='black', linewidth=1) # Eje X
     
-    # Dibujar los límites y la raíz
-    plt.axvline(xl, color='orange', linestyle='--', label='xl final')
-    plt.axvline(xu, color='purple', linestyle='--', label='xu final')
+    # Dibujar los límites originales y la raíz encontrada
+    plt.axvline(xl_original, color='orange', linestyle='--', label='xl inicial')
+    plt.axvline(xu_original, color='purple', linestyle='--', label='xu inicial')
     plt.plot(xr, 0, 'ro', markersize=8, label=f'Raíz ({round(xr, 8)})')
     
     plt.grid(color='gray', linestyle=':', linewidth=0.5)
@@ -127,26 +157,24 @@ def metodo_biseccion(funcion_str, xl, xu, tol, max_iter):
 # ==========================================
 # MÉTODO 2: REGLA FALSA (FALSA POSICIÓN)
 # ==========================================
-def metodo_falsa_posicion(funcion_str, xl, xu, tol, max_iter):
-    funcion_str = funcion_str.replace('^', '**').replace('ln', 'log').replace('x(', 'x*(').replace('X(', 'x*(')
+def metodo_falsa_posicion(latex_str, xl, xu, tol, max_iter):
     x = sp.Symbol('x')
     
     try:
-        # 2. Traducción matemática (Forzando la 'e')
-        diccionario_matematico = {'e': sp.E, 'pi': sp.pi}
-        funcion_simbolica = sp.sympify(funcion_str, locals=diccionario_matematico)
+        # 1. Traducción matemática desde LaTeX
+        funcion_simbolica = parse_latex(latex_str)
         
-        # Un seguro extra por si la 'e' se escapa
+        # Un seguro extra por si la 'e' se escapa como símbolo normal
         funcion_simbolica = funcion_simbolica.subs(sp.Symbol('e'), sp.E)
         
+        # Convertimos a función evaluable por NumPy
         f = sp.lambdify(x, funcion_simbolica, 'numpy') 
 
-        # 3. LA PRUEBA DE FUEGO: Evaluamos los límites AQUÍ ADENTRO
+        # 2. LA PRUEBA DE FUEGO: Evaluamos los límites AQUÍ ADENTRO
         xl_original = xl
         xu_original = xu
         
         # Obligamos a que el resultado sea un número decimal (float)
-        # Si la función tiene errores o letras sueltas, esto fallará y activará la alerta roja
         fxl = float(f(xl))
         fxu = float(f(xu))
 
@@ -155,7 +183,7 @@ def metodo_falsa_posicion(funcion_str, xl, xu, tol, max_iter):
             "error": True,
             "titulo": "🛑 Error de Sintaxis Matemática",
             "mensaje": f"No se pudo calcular la función. Detalle técnico: {str(err)}",
-            "consejo": "Recuerda usar '*' para multiplicar (ej: 2*x) y usar 'exp(x)' en lugar de la letra 'e'.",
+            "consejo": "Verifica que la ecuación esté completa en la pizarra virtual (ej: que no falten valores en las fracciones o raíces).",
             "link_sympy": "https://docs.sympy.org/latest/tutorials/intro-tutorial/gotchas.html"
         }
 
@@ -165,7 +193,7 @@ def metodo_falsa_posicion(funcion_str, xl, xu, tol, max_iter):
             "error": True,
             "titulo": "⚠️ Intervalo sin cambio de signo",
             "mensaje": f"Evaluamos tus límites y obtuvimos f({xl}) = {round(fxl, 8)} y f({xu}) = {round(fxu, 8)}. Mismo signo.",
-            "consejo": "Para la bisección, un resultado debe ser positivo y el otro negativo."
+            "consejo": "Para la regla falsa, un resultado debe ser positivo y el otro negativo en el intervalo inicial."
         }
 
     resultados = []
@@ -179,7 +207,7 @@ def metodo_falsa_posicion(funcion_str, xl, xu, tol, max_iter):
         if fxl - fxu == 0:
             break
 
-        # LA NUEVA FÓRMULA DE REGLA FALSA
+        # LA FÓRMULA DE REGLA FALSA
         xr = xu - (fxu * (xl - xu)) / (fxl - fxu)
         fxr = f(xr)
 
@@ -208,13 +236,13 @@ def metodo_falsa_posicion(funcion_str, xl, xu, tol, max_iter):
 
         xr_anterior = xr
 
-    # GENERAR LA GRÁFICA
+    # === GENERAR LA GRÁFICA ===
     margen = (xu_original - xl_original) * 0.5
     x_vals = np.linspace(xl_original - margen, xu_original + margen, 200)
     y_vals = f(x_vals)
 
     plt.figure(figsize=(8, 4))
-    plt.plot(x_vals, y_vals, label=f'f(x)', color='#198754', linewidth=2) # En verde para distinguirlo
+    plt.plot(x_vals, y_vals, label='f(x)', color='#198754', linewidth=2) # En verde para distinguirlo
     plt.axhline(0, color='black', linewidth=1) 
     
     plt.axvline(xl_original, color='orange', linestyle='--', label='xl inicial')
@@ -1052,7 +1080,7 @@ def inicio():
 def biseccion():
     datos = None
     if request.method == 'POST':
-        funcion = request.form['funcion']
+        funcion = request.form['ecuacion_latex']
         xl = float(request.form['xl'])
         xu = float(request.form['xu'])
         tol = float(request.form['tol'])

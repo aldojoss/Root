@@ -2,7 +2,6 @@
 
 {% block contenido %}
   <div class="container bg-white p-4 rounded shadow-sm">
-    
     <h2 class="mb-4 text-success"><i class="bi bi-geo-alt"></i> Método de Regla Falsa</h2>
     <p class="text-muted">A diferencia de la bisección, este método une f(xl) y f(xu) con una línea recta para encontrar una intersección más rápida con el eje X.</p>
 
@@ -27,14 +26,14 @@
         <label>Max Iteraciones</label>
         <input type="number" name="max_iter" class="form-control" required placeholder="50" />
       </div>
+      {% include '_math_input.html' %}
       <div class="col-12">
         <button type="submit" class="btn btn-success"><i class="bi bi-calculator"></i> Calcular Raíz</button>
       </div>
     </form>
 
-    <hr>
+    <hr />
 
     {% include '_resultados.html' %}
-
   </div>
 {% endblock %}

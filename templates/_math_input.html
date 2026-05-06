@@ -2,12 +2,15 @@
 <div class="mb-4">
     <label class="form-label fw-bold">Ingrese la función f(x):</label>
     
+    <!-- FIX: Agregamos display: block y min-height para que no colapse, 
+         y le metemos la variable de Jinja para que no borre lo que escribiste si hay error -->
     <math-field id="formula" virtual-keyboard-mode="manual" 
-                style="font-size: 1.5rem; padding: 10px; border: 1px solid #ced4da; border-radius: 0.375rem; background-color: white; width: 100%;">
+                style="display: block; width: 100%; min-height: 60px; font-size: 1.5rem; padding: 10px; border: 1px solid #ced4da; border-radius: 0.375rem; background-color: white;">
+        {{ request.form.get('ecuacion_latex', '') }}
     </math-field>
     
-    <!-- El input oculto que recibe el LaTeX y viaja a Flask -->
-    <input type="hidden" name="ecuacion_latex" id="ecuacion_latex">
+    <!-- El input oculto también retiene el valor -->
+    <input type="hidden" name="ecuacion_latex" id="ecuacion_latex" value="{{ request.form.get('ecuacion_latex', '') }}">
     
     <div class="form-text">Haz clic en el cuadro o en el icono del teclado para ingresar la ecuación.</div>
 </div>

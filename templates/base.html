@@ -101,7 +101,7 @@
       }
       
       /* Obliga a cualquier elemento dentro del panel derecho a quedarse quieto, 
-                                       ignorando las clases de Bootstrap como sticky-top */
+                                             ignorando las clases de Bootstrap como sticky-top */
       .content .sticky-top {
         position: static !important;
         z-index: auto !important;
@@ -138,8 +138,6 @@
                 <a href="/newton">- Newton-Raphson</a>
                 <a href="/secante">- Secante</a>
                 <a href="/punto_fijo">- Punto fijo</a>
-                <a href="/muller">- Muller</a>
-                <a href="/horner_newton">- Horner-Newton</a>
               </div>
             </div>
           </div>
@@ -147,6 +145,8 @@
           <a href="/taylor" class="mt-2"><i class="bi bi-bar-chart-steps"></i> Series de Taylor</a>
           <a href="/horner" class="mt-2"><i class="bi bi-layout-three-columns"></i> Método de Horner</a>
           <a href="/bairstow" class="mt-2"><i class="bi bi-braces-asterisk"></i> Método de Bairstow</a>
+          <a href="/muller" class="mt-2"><i class="bi bi-bezier2"></i> Método de Muller</a>
+          <a href="/horner_newton" class="mt-2"><i class="bi bi-arrow-down-right-square"></i> Método de Punto Horner-Newton</a>
         </div>
       </nav>
 
@@ -158,21 +158,6 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
-<script>
-    document.addEventListener("DOMContentLoaded", function() {
-        const mathField = document.getElementById('formula');
-        const inputOculto = document.getElementById('ecuacion_latex');
-        
-        if (mathField && inputOculto) {
-            // Sincronización en tiempo real cada vez que el usuario escribe
-            mathField.addEventListener('input', (ev) => {
-                inputOculto.value = mathField.value;
-                console.log("LaTeX actual:", mathField.value); // Para ver en la consola del navegador
-            });
-        }
-    });
-</script>
 
   </body>
 </html>

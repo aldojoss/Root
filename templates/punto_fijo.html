@@ -8,10 +8,13 @@
     </p>
 
     <form method="POST" class="row g-3 mb-4 align-items-end">
+      
+      <!--
       <div class="col-md-5">
-        <label class="fw-bold" style="color: #6f42c1;">Función g(x) ya despejada</label>
         <input type="text" name="gx" class="form-control border-secondary shadow-sm" required placeholder="exp(-x)" title="Escribe tu g(x)" />
       </div>
+      -->
+      
       <div class="col-md-2">
         <label class="fw-bold text-orange">Valor Inicial (x0)</label>
         <input type="number" step="any" name="x0" class="form-control" required placeholder="0" />
@@ -24,6 +27,7 @@
         <label>Max Iteraciones</label>
         <input type="number" name="max_iter" class="form-control" required placeholder="50" />
       </div>
+      <label class="fw-bold" style="color: #6f42c1;">Función g(x) ya despejada</label>
       {% include '_math_input.html' %}
       <div class="col-12 mt-4">
         <button type="submit" class="btn text-white shadow-sm" style="background-color: #6f42c1;"><i class="bi bi-calculator"></i> Calcular Raíz</button>

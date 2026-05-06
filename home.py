@@ -368,21 +368,42 @@ def metodo_newton_raphson(funcion_str, x0, tol, max_iter):
 # ==========================================
 # MÉTODO 4: SECANTE
 # ==========================================
-def metodo_secante(funcion_str, x0, x1, tol, max_iter):
-    funcion_str = funcion_str.replace('^', '**').replace('ln', 'log').replace('x(', 'x*(').replace('X(', 'x*(')
+def metodo_secante(latex_str, x0, x1, tol, max_iter):
     x = sp.Symbol('x')
     
+    # --- BLOQUEO DE SEGURIDAD ---
+    if not latex_str or latex_str.strip() == "":
+        return {
+            "error": True,
+            "titulo": "🛑 Ecuación vacía",
+            "mensaje": "No se recibió ninguna ecuación.",
+            "consejo": "Por favor, escribe la función en la pizarra virtual antes de calcular."
+        }
+    
     try:
-        diccionario_matematico = {'e': sp.E, 'pi': sp.pi}
-        funcion_simbolica = sp.sympify(funcion_str, locals=diccionario_matematico)
+        # === LIMPIEZA EXTREMA DEL LATEX ===
+        latex_limpio = latex_str.replace(r'\mathrm{e}', 'e')
+        latex_limpio = latex_limpio.replace(r'\exponentialE', 'e')
+        latex_limpio = latex_limpio.replace(r'\cdot', '*') 
+        
+        # Traducción matemática
+        funcion_simbolica = parse_latex(latex_limpio)
+        funcion_simbolica = funcion_simbolica.subs(sp.Symbol('e'), sp.E)
         f = sp.lambdify(x, funcion_simbolica, 'numpy') 
+
+        # Prueba de fuego numérica con los valores iniciales
+        float(f(x0))
+        float(f(x1))
+
     except Exception as err:
+        # Imprimirá en tu terminal negra de VS Code el texto exacto que causó el error
+        print(f"==============\n🛑 FALLA AL PARSEAR:\nTexto original: '{latex_str}'\nTexto limpio: '{latex_limpio}'\n==============") 
+        
         return {
             "error": True,
             "titulo": "🛑 Error de Sintaxis Matemática",
-            "mensaje": f"No se pudo evaluar la función. Detalle: {str(err)}",
-            "consejo": "Recuerda usar '*' para multiplicaciones y 'exp(x)' en lugar de 'e'.",
-            "link_sympy": "https://docs.sympy.org/latest/tutorials/intro-tutorial/gotchas.html"
+            "mensaje": f"SymPy no pudo entender la función. Detalle: {str(err)}",
+            "consejo": "Revisa la consola (terminal) de VS Code para ver qué texto exacto envió MathLive."
         }
 
     resultados = []
@@ -414,7 +435,7 @@ def metodo_secante(funcion_str, x0, x1, tol, max_iter):
             "fxi_menos_1": round(fxi_menos_1, 8),
             "fxi": round(fxi, 8),
             "x_siguiente": round(x_siguiente, 8),
-            "ea": round(ea, 8) if i > 1 else "---" # El primer error a veces no se calcula, pero lo dejamos por consistencia
+            "ea": round(ea, 8) if i > 1 else "---" 
         })
 
         if ea < tol:
@@ -437,7 +458,7 @@ def metodo_secante(funcion_str, x0, x1, tol, max_iter):
     y_vals = np.clip(y_vals, -altura_maxima, altura_maxima)
 
     plt.figure(figsize=(8, 4))
-    plt.plot(x_vals, y_vals, label=f'f(x)', color='#0dcaf0', linewidth=2) # Cyan para la Secante
+    plt.plot(x_vals, y_vals, label='f(x)', color='#0dcaf0', linewidth=2) # Cyan para la Secante
     plt.axhline(0, color='black', linewidth=1) 
     
     # Puntos iniciales
@@ -466,22 +487,41 @@ def metodo_secante(funcion_str, x0, x1, tol, max_iter):
 # ==========================================
 # MÉTODO 5: SERIES DE TAYLOR
 # ==========================================
-def serie_taylor(funcion_str, x0, x_eval, orden):
-    funcion_str = funcion_str.replace('^', '**').replace('ln', 'log').replace('x(', 'x*(').replace('X(', 'x*(')
+def serie_taylor(latex_str, x0, x_eval, orden):
     x = sp.Symbol('x')
     
-    try:
-        diccionario_matematico = {'e': sp.E, 'pi': sp.pi}
-        f_simbolica = sp.sympify(funcion_str, locals=diccionario_matematico)
-        f_numpy = sp.lambdify(x, f_simbolica, 'numpy') 
-        valor_verdadero = f_numpy(x_eval)
-    except Exception as err:
+    # --- BLOQUEO DE SEGURIDAD ---
+    if not latex_str or latex_str.strip() == "":
         return {
             "error": True,
-            "titulo": "🛑 Error de Sintaxis",
-            "mensaje": f"No se pudo evaluar la función. Detalle: {str(err)}",
-            "consejo": "Asegúrate de escribir la función correctamente.",
-            "link_sympy": "https://docs.sympy.org/latest/tutorials/intro-tutorial/gotchas.html"
+            "titulo": "🛑 Ecuación vacía",
+            "mensaje": "No se recibió ninguna ecuación.",
+            "consejo": "Por favor, escribe la función en la pizarra virtual antes de calcular."
+        }
+    
+    try:
+        # === LIMPIEZA EXTREMA DEL LATEX ===
+        latex_limpio = latex_str.replace(r'\mathrm{e}', 'e')
+        latex_limpio = latex_limpio.replace(r'\exponentialE', 'e')
+        latex_limpio = latex_limpio.replace(r'\cdot', '*') 
+        
+        # Traducción matemática
+        f_simbolica = parse_latex(latex_limpio)
+        f_simbolica = f_simbolica.subs(sp.Symbol('e'), sp.E)
+        
+        f_numpy = sp.lambdify(x, f_simbolica, 'numpy') 
+        
+        # Evaluamos el valor verdadero desde el inicio
+        valor_verdadero = float(f_numpy(x_eval))
+        
+    except Exception as err:
+        print(f"==============\n🛑 FALLA AL PARSEAR:\nTexto original: '{latex_str}'\nTexto limpio: '{latex_limpio}'\n==============") 
+        
+        return {
+            "error": True,
+            "titulo": "🛑 Error de Sintaxis Matemática",
+            "mensaje": f"SymPy no pudo entender la función. Detalle: {str(err)}",
+            "consejo": "Revisa la consola (terminal) de VS Code para ver qué texto exacto envió MathLive."
         }
 
     resultados = []
@@ -531,13 +571,14 @@ def serie_taylor(funcion_str, x0, x_eval, orden):
     # Evaluar el polinomio de Taylor completo para la gráfica
     p_numpy = sp.lambdify(x, polinomio_taylor, 'numpy')
     y_vals_taylor = p_numpy(x_vals)
+    
     # Si el polinomio resulta ser una constante, numpy necesita un array del mismo tamaño
     if isinstance(y_vals_taylor, (int, float)):
         y_vals_taylor = np.full_like(x_vals, y_vals_taylor)
 
     plt.figure(figsize=(8, 5))
     # Función real
-    plt.plot(x_vals, y_vals_original, label=f'Original: f(x)', color='black', linewidth=3) 
+    plt.plot(x_vals, y_vals_original, label='Original: f(x)', color='black', linewidth=3) 
     # Aproximación de Taylor
     plt.plot(x_vals, y_vals_taylor, label=f'Polinomio Taylor (Orden {orden})', color='#ffc107', linestyle='--', linewidth=2) 
     
@@ -545,15 +586,17 @@ def serie_taylor(funcion_str, x0, x_eval, orden):
     plt.axvline(x0, color='orange', linestyle=':', label='x0 (Centro)')
     plt.axvline(x_eval, color='purple', linestyle=':', label='x a evaluar')
     
-    plt.plot(x_eval, valor_verdadero, 'ko', label=f'Valor Real ({round(float(valor_verdadero), 8)})')
+    plt.plot(x_eval, float(valor_verdadero), 'ko', label=f'Valor Real ({round(float(valor_verdadero), 8)})')
     plt.plot(x_eval, float(aproximacion), 'yo', label=f'Aprox ({round(float(aproximacion), 8)})')
     
     plt.grid(color='gray', linestyle=':', linewidth=0.5)
+    
     # Filtrar valores matemáticamente inválidos (NaN o Infinitos) antes de fijar la altura
     y_validos = y_vals_original[np.isfinite(y_vals_original)]
     
     if len(y_validos) > 0:
         plt.ylim(np.min(y_validos) - 2, np.max(y_validos) + 2)
+        
     plt.legend()
     plt.tight_layout()
 
@@ -574,13 +617,26 @@ def serie_taylor(funcion_str, x0, x_eval, orden):
 # ==========================================
 # MÉTODO 6: PUNTO FIJO (CON PREDICTOR)
 # ==========================================
-def metodo_punto_fijo(gx_str, x0, tol, max_iter):
-    gx_str = gx_str.replace('^', '**').replace('ln', 'log').replace('x(', 'x*(').replace('X(', 'x*(')
+def metodo_punto_fijo(latex_gx_str, x0, tol, max_iter):
     x = sp.Symbol('x')
     
+    # --- BLOQUEO DE SEGURIDAD ---
+    if not latex_gx_str or latex_gx_str.strip() == "":
+        return {
+            "error": True,
+            "titulo": "🛑 Ecuación g(x) vacía",
+            "mensaje": "No se recibió ninguna ecuación despejada.",
+            "consejo": "Por favor, escribe tu función g(x) en la pizarra virtual antes de calcular."
+        }
+    
     try:
-        diccionario_matematico = {'e': sp.E, 'pi': sp.pi}
-        g_simbolica = sp.sympify(gx_str, locals=diccionario_matematico)
+        # === LIMPIEZA EXTREMA DEL LATEX ===
+        latex_limpio = latex_gx_str.replace(r'\mathrm{e}', 'e')
+        latex_limpio = latex_limpio.replace(r'\exponentialE', 'e')
+        latex_limpio = latex_limpio.replace(r'\cdot', '*') 
+        
+        # Traducción matemática
+        g_simbolica = parse_latex(latex_limpio)
         g_simbolica = g_simbolica.subs(sp.Symbol('e'), sp.E)
         
         g = sp.lambdify(x, g_simbolica, 'numpy') 
@@ -601,11 +657,13 @@ def metodo_punto_fijo(gx_str, x0, tol, max_iter):
             color_diag = "danger"
 
     except Exception as err:
+        print(f"==============\n🛑 FALLA AL PARSEAR:\nTexto original: '{latex_gx_str}'\nTexto limpio: '{latex_limpio}'\n==============") 
+        
         return {
             "error": True,
             "titulo": "🛑 Error de Sintaxis Matemática",
             "mensaje": f"No se pudo evaluar g(x) o su derivada. Detalle: {str(err)}",
-            "consejo": "Recuerda usar '*' para multiplicaciones y 'exp(x)' en lugar de 'e'."
+            "consejo": "Revisa que la ecuación esté completa en la pizarra virtual."
         }
 
     resultados = []
@@ -642,14 +700,14 @@ def metodo_punto_fijo(gx_str, x0, tol, max_iter):
         return {
             "error": True,
             "titulo": "🚀 ¡El método explotó (Divergencia)!",
-            "mensaje": diagnostico, # Mostramos por qué explotó basado en la derivada
+            "mensaje": diagnostico, 
             "consejo": "Esta calculadora hace milagros, pero no sabe despejar por ti. Si no sabes hacer un despeje algebraico válido para llegar a g(x), deberías considerar seriamente regresar al curso propedéutico. 📚"
         }
 
     # === GENERAR LA GRÁFICA ===
     margen = abs(xi - x0) + 2
     x_min = min(x0, xi) - margen
-    x_max = max(x0, xi) + margen
+    x_max = max(x0, xi) - margen if max(x0, xi) == min(x0, xi) else max(x0, xi) + margen
     
     x_vals = np.linspace(x_min, x_max, 200)
     x_vals = np.where(x_vals == 0, 1e-10, x_vals) 
@@ -660,8 +718,8 @@ def metodo_punto_fijo(gx_str, x0, tol, max_iter):
     y_vals_g = np.clip(y_vals_g, -altura_maxima, altura_maxima)
 
     plt.figure(figsize=(8, 5))
-    plt.plot(x_vals, y_vals_g, label=f'g(x)', color='#6f42c1', linewidth=2) 
-    plt.plot(x_vals, y_vals_identidad, label=f'y = x', color='gray', linestyle='--', linewidth=1.5) 
+    plt.plot(x_vals, y_vals_g, label='g(x)', color='#6f42c1', linewidth=2) 
+    plt.plot(x_vals, y_vals_identidad, label='y = x', color='gray', linestyle='--', linewidth=1.5) 
     plt.axhline(0, color='black', linewidth=1) 
     plt.axvline(x0, color='orange', linestyle=':', label='x0 inicial')
     plt.plot(xi, xi, 'ro', markersize=8, label=f'Raíz ({round(xi, 8)})') 
@@ -680,19 +738,34 @@ def metodo_punto_fijo(gx_str, x0, tol, max_iter):
         "tipo": "punto_fijo", 
         "resultados": resultados, 
         "raiz": round(xi, 8),
-        "convergencia": diagnostico, # Mandamos el diagnóstico a la tarjeta azul
+        "convergencia": diagnostico, 
         "grafica": grafica_url
     }
     
 # ==========================================
 # MÉTODO 7: MÉTODO DE HORNER
 # ==========================================
-def metodo_horner(funcion_str, x0):
-    funcion_str = funcion_str.replace('^', '**').replace('x(', 'x*(').replace('X(', 'x*(')
+def metodo_horner(latex_str, x0):
     x = sp.Symbol('x')
     
+    # --- BLOQUEO DE SEGURIDAD ---
+    if not latex_str or latex_str.strip() == "":
+        return {
+            "error": True,
+            "titulo": "🛑 Polinomio vacío",
+            "mensaje": "No se recibió ninguna ecuación.",
+            "consejo": "Por favor, escribe el polinomio en la pizarra virtual antes de calcular."
+        }
+    
     try:
-        f_simbolica = sp.sympify(funcion_str)
+        # === LIMPIEZA EXTREMA DEL LATEX ===
+        latex_limpio = latex_str.replace(r'\mathrm{e}', 'e')
+        latex_limpio = latex_limpio.replace(r'\exponentialE', 'e')
+        latex_limpio = latex_limpio.replace(r'\cdot', '*') 
+        
+        # Traducción matemática
+        f_simbolica = parse_latex(latex_limpio)
+        f_simbolica = f_simbolica.subs(sp.Symbol('e'), sp.E)
         
         # Validación de seguridad: ¿Es realmente un polinomio?
         if not f_simbolica.is_polynomial(x):
@@ -700,7 +773,7 @@ def metodo_horner(funcion_str, x0):
                 "error": True,
                 "titulo": "🛑 Función No Polinomial",
                 "mensaje": "El Método de Horner es una técnica de división sintética que SOLO funciona con polinomios.",
-                "consejo": "Ingresa una función polinomial válida (Ej: 2*x**3 - 4*x**2 + x - 5). No uses fracciones con x en el denominador, trigonométricas o logaritmos."
+                "consejo": "Ingresa una función polinomial válida (Ej: 2x^3 - 4x^2 + x - 5). No uses fracciones con x en el denominador, trigonométricas o logaritmos."
             }
             
         polinomio = sp.Poly(f_simbolica, x)
@@ -708,11 +781,13 @@ def metodo_horner(funcion_str, x0):
         n = polinomio.degree()
         
     except Exception as err:
+        print(f"==============\n🛑 FALLA AL PARSEAR:\nTexto original: '{latex_str}'\nTexto limpio: '{latex_limpio}'\n==============") 
+        
         return {
             "error": True,
             "titulo": "🛑 Error de Sintaxis Matemática",
             "mensaje": f"No se pudo evaluar el polinomio. Detalle: {str(err)}",
-            "consejo": "Asegúrate de escribir el polinomio correctamente."
+            "consejo": "Revisa la consola (terminal) de VS Code para ver qué texto exacto envió MathLive."
         }
 
     resultados = []
@@ -743,20 +818,24 @@ def metodo_horner(funcion_str, x0):
 
     # === GENERAR LA GRÁFICA ===
     f_numpy = sp.lambdify(x, f_simbolica, 'numpy') 
-    margen = abs(x0) * 0.5 if x0 != 0 else 5
-    x_min = x0 - margen - 2
-    x_max = x0 + margen + 2
+    
+    # Aseguramos que x0 sea un float (por si SymPy lo devuelve como objeto)
+    x0_float = float(x0)
+    
+    margen = abs(x0_float) * 0.5 if x0_float != 0 else 5
+    x_min = x0_float - margen - 2
+    x_max = x0_float + margen + 2
     
     x_vals = np.linspace(x_min, x_max, 200)
     y_vals = f_numpy(x_vals)
 
     plt.figure(figsize=(8, 4))
-    plt.plot(x_vals, y_vals, label=f'P(x)', color='#fd7e14', linewidth=2) # Naranja para Horner
+    plt.plot(x_vals, y_vals, label='P(x)', color='#fd7e14', linewidth=2) # Naranja para Horner
     plt.axhline(0, color='black', linewidth=1) 
     
     # Dibujar el punto evaluado
-    plt.axvline(x0, color='gray', linestyle=':', label=f'x0 = {x0}')
-    plt.plot(x0, b_actual, 'bo', markersize=8, label=f'P({x0}) = {round(b_actual, 4)}') 
+    plt.axvline(x0_float, color='gray', linestyle=':', label=f'x0 = {x0_float}')
+    plt.plot(x0_float, b_actual, 'bo', markersize=8, label=f'P({x0_float}) = {round(b_actual, 4)}') 
     
     plt.grid(color='gray', linestyle=':', linewidth=0.5)
     plt.legend()
@@ -779,12 +858,27 @@ def metodo_horner(funcion_str, x0):
 # ==========================================
 # MÉTODO 8: HORNER-NEWTON (BIRGE-VIETA)
 # ==========================================
-def metodo_horner_newton(funcion_str, x0, tol, max_iter):
-    funcion_str = funcion_str.replace('^', '**').replace('x(', 'x*(').replace('X(', 'x*(')
+def metodo_horner_newton(latex_str, x0, tol, max_iter):
     x = sp.Symbol('x')
     
+    # --- BLOQUEO DE SEGURIDAD ---
+    if not latex_str or latex_str.strip() == "":
+        return {
+            "error": True,
+            "titulo": "🛑 Polinomio vacío",
+            "mensaje": "No se recibió ninguna ecuación.",
+            "consejo": "Por favor, escribe la función en la pizarra virtual antes de calcular."
+        }
+    
     try:
-        f_simbolica = sp.sympify(funcion_str)
+        # === LIMPIEZA EXTREMA DEL LATEX ===
+        latex_limpio = latex_str.replace(r'\mathrm{e}', 'e')
+        latex_limpio = latex_limpio.replace(r'\exponentialE', 'e')
+        latex_limpio = latex_limpio.replace(r'\cdot', '*') 
+        
+        # Traducción matemática
+        f_simbolica = parse_latex(latex_limpio)
+        f_simbolica = f_simbolica.subs(sp.Symbol('e'), sp.E)
         
         # Validación de seguridad: ¡Solo polinomios!
         if not f_simbolica.is_polynomial(x):
@@ -792,7 +886,7 @@ def metodo_horner_newton(funcion_str, x0, tol, max_iter):
                 "error": True,
                 "titulo": "🛑 Función No Polinomial",
                 "mensaje": "El Método de Horner-Newton utiliza doble división sintética y SOLO funciona con polinomios.",
-                "consejo": "Ingresa una función polinomial válida (Ej: x**3 - 2*x**2 - 5). No uses fracciones, senos o logaritmos."
+                "consejo": "Ingresa una función polinomial válida (Ej: x^3 - 2x^2 - 5). No uses fracciones con x abajo, senos o logaritmos."
             }
             
         polinomio = sp.Poly(f_simbolica, x)
@@ -800,11 +894,12 @@ def metodo_horner_newton(funcion_str, x0, tol, max_iter):
         f_numpy = sp.lambdify(x, f_simbolica, 'numpy') 
         
     except Exception as err:
+        print(f"==============\n🛑 FALLA AL PARSEAR:\nTexto original: '{latex_str}'\nTexto limpio: '{latex_limpio}'\n==============") 
         return {
             "error": True,
             "titulo": "🛑 Error de Sintaxis Matemática",
             "mensaje": f"No se pudo evaluar el polinomio. Detalle: {str(err)}",
-            "consejo": "Asegúrate de escribir el polinomio correctamente."
+            "consejo": "Revisa la consola (terminal) de VS Code para ver qué texto exacto envió MathLive."
         }
 
     # Función auxiliar para hacer la división sintética rápida
@@ -853,9 +948,9 @@ def metodo_horner_newton(funcion_str, x0, tol, max_iter):
         xi = x_siguiente
 
     # === GENERAR LA GRÁFICA ===
-    margen = abs(xi - x0) * 0.5 if abs(xi - x0) > 0 else 2
-    x_min = min(x0, xi) - margen
-    x_max = max(x0, xi) + margen
+    margen = abs(xi - float(x0)) * 0.5 if abs(xi - float(x0)) > 0 else 2
+    x_min = min(float(x0), xi) - margen
+    x_max = max(float(x0), xi) + margen
     
     x_vals = np.linspace(x_min, x_max, 200)
     y_vals = f_numpy(x_vals)
@@ -864,10 +959,10 @@ def metodo_horner_newton(funcion_str, x0, tol, max_iter):
     y_vals = np.clip(y_vals, -altura_maxima, altura_maxima)
 
     plt.figure(figsize=(8, 4))
-    plt.plot(x_vals, y_vals, label=f'P(x)', color='#20c997', linewidth=2) # Color Teal
+    plt.plot(x_vals, y_vals, label='P(x)', color='#20c997', linewidth=2) # Color Teal
     plt.axhline(0, color='black', linewidth=1) 
     
-    plt.axvline(x0, color='orange', linestyle='--', label='x0 inicial')
+    plt.axvline(float(x0), color='orange', linestyle='--', label='x0 inicial')
     plt.plot(xi, 0, 'go', markersize=8, label=f'Raíz ({round(xi, 8)})') 
     
     plt.grid(color='gray', linestyle=':', linewidth=0.5)
@@ -891,23 +986,45 @@ def metodo_horner_newton(funcion_str, x0, tol, max_iter):
 # ==========================================
 # MÉTODO 9: MÉTODO DE MÜLLER
 # ==========================================
-def metodo_muller(funcion_str, x0, x1, x2, tol, max_iter):
-    funcion_str = funcion_str.replace('^', '**').replace('ln', 'log').replace('x(', 'x*(').replace('X(', 'x*(')
+def metodo_muller(latex_str, x0, x1, x2, tol, max_iter):
     x = sp.Symbol('x')
     
-    try:
-        diccionario_matematico = {'e': sp.E, 'pi': sp.pi}
-        f_simbolica = sp.sympify(funcion_str, locals=diccionario_matematico)
-        f = sp.lambdify(x, f_simbolica, 'numpy') 
-    except Exception as err:
+    # --- BLOQUEO DE SEGURIDAD ---
+    if not latex_str or latex_str.strip() == "":
         return {
             "error": True,
-            "titulo": "🛑 Error de Sintaxis",
+            "titulo": "🛑 Ecuación vacía",
+            "mensaje": "No se recibió ninguna ecuación.",
+            "consejo": "Por favor, escribe la función en la pizarra virtual antes de calcular."
+        }
+    
+    try:
+        # === LIMPIEZA EXTREMA DEL LATEX ===
+        latex_limpio = latex_str.replace(r'\mathrm{e}', 'e')
+        latex_limpio = latex_limpio.replace(r'\exponentialE', 'e')
+        latex_limpio = latex_limpio.replace(r'\cdot', '*') 
+        
+        # Traducción matemática
+        f_simbolica = parse_latex(latex_limpio)
+        f_simbolica = f_simbolica.subs(sp.Symbol('e'), sp.E)
+        f = sp.lambdify(x, f_simbolica, 'numpy') 
+
+        # Prueba de fuego con los 3 puntos iniciales
+        complex(f(x0))
+        complex(f(x1))
+        complex(f(x2))
+
+    except Exception as err:
+        print(f"==============\n🛑 FALLA AL PARSEAR:\nTexto original: '{latex_str}'\nTexto limpio: '{latex_limpio}'\n==============") 
+        return {
+            "error": True,
+            "titulo": "🛑 Error de Sintaxis Matemática",
             "mensaje": f"No se pudo evaluar la función. Detalle: {str(err)}",
-            "consejo": "Usa '*' para multiplicar y 'exp(x)' para la base e."
+            "consejo": "Revisa la consola (terminal) de VS Code para ver qué texto exacto envió MathLive."
         }
 
     resultados = []
+    
     # Usamos números complejos internamente por si la raíz lo requiere
     h0 = x1 - x0
     h1 = x2 - x1
@@ -955,7 +1072,7 @@ def metodo_muller(funcion_str, x0, x1, x2, tol, max_iter):
         d1 = (f(x2) - f(x1)) / h1
         a = (d1 - d0) / (h1 + h0)
 
-    # Gráfica
+    # === GENERAR LA GRÁFICA ===
     margen = 2
     x_min = min(x0.real, x1.real, x2.real) - margen
     x_max = max(x0.real, x1.real, x2.real) + margen
@@ -987,24 +1104,49 @@ def metodo_muller(funcion_str, x0, x1, x2, tol, max_iter):
 # ==========================================
 # MÉTODO 10: MÉTODO DE BAIRSTOW (CORREGIDO)
 # ==========================================
-def metodo_bairstow(funcion_str, r, s, tol, max_iter):
-    funcion_str = funcion_str.replace('^', '**').replace('x(', 'x*(').replace('X(', 'x*(')
+def metodo_bairstow(latex_str, r, s, tol, max_iter):
     x = sp.Symbol('x')
     
+    # --- BLOQUEO DE SEGURIDAD ---
+    if not latex_str or latex_str.strip() == "":
+        return {
+            "error": True,
+            "titulo": "🛑 Polinomio vacío",
+            "mensaje": "No se recibió ninguna ecuación.",
+            "consejo": "Por favor, escribe el polinomio en la pizarra virtual antes de calcular."
+        }
+    
     try:
-        f_simbolica = sp.sympify(funcion_str)
+        # === LIMPIEZA EXTREMA DEL LATEX ===
+        latex_limpio = latex_str.replace(r'\mathrm{e}', 'e')
+        latex_limpio = latex_limpio.replace(r'\exponentialE', 'e')
+        latex_limpio = latex_limpio.replace(r'\cdot', '*') 
+        
+        # Traducción matemática
+        f_simbolica = parse_latex(latex_limpio)
+        f_simbolica = f_simbolica.subs(sp.Symbol('e'), sp.E)
+        
         if not f_simbolica.is_polynomial(x):
             return {
                 "error": True,
                 "titulo": "🛑 No es un Polinomio",
-                "mensaje": "Bairstow solo funciona con funciones polinomiales."
+                "mensaje": "El método de Bairstow solo funciona con funciones polinomiales.",
+                "consejo": "Ingresa una función polinomial válida (Ej: x^4 - 3x^3 + 2x - 1)."
             }
+            
         polinomio = sp.Poly(f_simbolica, x)
         a = [float(c) for c in polinomio.all_coeffs()]
         a.reverse() 
         n = len(a) - 1
+        
     except Exception as err:
-        return {"error": True, "titulo": "🛑 Error", "mensaje": str(err)}
+        print(f"==============\n🛑 FALLA AL PARSEAR:\nTexto original: '{latex_str}'\nTexto limpio: '{latex_limpio}'\n==============") 
+        return {
+            "error": True, 
+            "titulo": "🛑 Error de Sintaxis Matemática", 
+            "mensaje": f"No se pudo evaluar el polinomio. Detalle: {str(err)}",
+            "consejo": "Revisa la consola (terminal) de VS Code para ver qué texto exacto envió MathLive."
+        }
 
     resultados = []
     current_r, current_s = float(r), float(s)
@@ -1094,7 +1236,7 @@ def biseccion():
 def falsa_posicion():
     datos = None
     if request.method == 'POST':
-        funcion = request.form['funcion']
+        funcion = request.form['ecuacion_latex']
         xl = float(request.form['xl'])
         xu = float(request.form['xu'])
         tol = float(request.form['tol'])
@@ -1108,7 +1250,7 @@ def falsa_posicion():
 def newton():
     datos = None
     if request.method == 'POST':
-        funcion = request.form['funcion']
+        funcion = request.form['ecuacion_latex']
         x0 = float(request.form['x0'])
         tol = float(request.form['tol'])
         max_iter = int(request.form['max_iter'])
@@ -1121,7 +1263,7 @@ def newton():
 def secante():
     datos = None
     if request.method == 'POST':
-        funcion = request.form['funcion']
+        funcion = request.form['ecuacion_latex']
         x0 = float(request.form['x0'])
         x1 = float(request.form['x1'])
         tol = float(request.form['tol'])
@@ -1135,7 +1277,7 @@ def secante():
 def taylor():
     datos = None
     if request.method == 'POST':
-        funcion = request.form['funcion']
+        funcion = request.form['ecuacion_latex']
         x0 = float(request.form['x0'])
         x_eval = float(request.form['x_eval'])
         orden = int(request.form['orden'])
@@ -1148,12 +1290,13 @@ def taylor():
 def punto_fijo():
     datos = None
     if request.method == 'POST':
-        gx = request.form['gx']
+        latex_gx_str = request.form['ecuacion_latex'] 
+        
         x0 = float(request.form['x0'])
         tol = float(request.form['tol'])
         max_iter = int(request.form['max_iter'])
         
-        datos = metodo_punto_fijo(gx, x0, tol, max_iter)
+        datos = metodo_punto_fijo(latex_gx_str, x0, tol, max_iter)
         
     return render_template('punto_fijo.html', datos=datos)
 
@@ -1161,7 +1304,7 @@ def punto_fijo():
 def horner():
     datos = None
     if request.method == 'POST':
-        funcion = request.form['funcion']
+        funcion = request.form['ecuacion_latex']
         x0 = float(request.form['x0'])
         
         datos = metodo_horner(funcion, x0)
@@ -1172,7 +1315,7 @@ def horner():
 def horner_newton():
     datos = None
     if request.method == 'POST':
-        funcion = request.form['funcion']
+        funcion = request.form['ecuacion_latex']
         x0 = float(request.form['x0'])
         tol = float(request.form['tol'])
         max_iter = int(request.form['max_iter'])
@@ -1185,7 +1328,7 @@ def horner_newton():
 def muller():
     datos = None
     if request.method == 'POST':
-        funcion = request.form['funcion']
+        funcion = request.form['ecuacion_latex']
         x0 = float(request.form['x0'])
         x1 = float(request.form['x1'])
         x2 = float(request.form['x2'])
@@ -1198,7 +1341,7 @@ def muller():
 def bairstow():
     datos = None
     if request.method == 'POST':
-        funcion = request.form['funcion']
+        funcion = request.form['ecuacion_latex']
         r = float(request.form['r'])
         s = float(request.form['s'])
         tol = float(request.form['tol'])

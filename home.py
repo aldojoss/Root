@@ -52,11 +52,40 @@ def metodo_biseccion(latex_str, xl, xu, tol, max_iter):
         latex_limpio = latex_str.replace(r'\mathrm{e}', 'e')
         latex_limpio = latex_limpio.replace(r'\exponentialE', 'e')
         latex_limpio = latex_limpio.replace(r'\cdot', '*') 
+        latex_limpio = latex_limpio.lower() # Esto convierte TODA la ecuación a minúsculas automáticamente
         
         # Traducimos
         funcion_simbolica = parse_latex(latex_limpio)
         funcion_simbolica = funcion_simbolica.subs(sp.Symbol('e'), sp.E)
-        f = sp.lambdify(x, funcion_simbolica, 'numpy') 
+        
+        # --- NUEVA MAGIA DINÁMICA ---
+        # Detectamos qué letra usó el usuario
+        simbolos_usados = list(funcion_simbolica.free_symbols)
+        
+        # Quitamos constantes como 'e' o 'pi' por si SymPy las confunde con variables
+        simbolos_usados = [s for s in simbolos_usados if str(s) not in ['e', 'pi']]
+
+        if len(simbolos_usados) > 1:
+            return {
+                "error": True,
+                "titulo": "🛑 Demasiadas Variables",
+                "mensaje": f"Detectamos estas variables: {simbolos_usados}. Los métodos de este proyecto solo soportan 1 sola incógnita.",
+                "consejo": "Usa solo una letra (ej: solo x, o solo t)."
+            }
+        
+        if len(simbolos_usados) == 0:
+            return {
+                "error": True,
+                "titulo": "🛑 Falta la Variable",
+                "mensaje": "La ecuación es solo un número constante.",
+                "consejo": "Asegúrate de incluir una variable (como x) en tu función."
+            }
+
+        # Asignamos la letra que el usuario escogió
+        variable_dinamica = simbolos_usados[0]
+
+        # Convertimos la función para que NumPy la pueda evaluar usando ESA letra
+        f = sp.lambdify(variable_dinamica, funcion_simbolica, 'numpy')
 
         xl_original = xl
         xu_original = xu
@@ -158,56 +187,87 @@ def metodo_biseccion(latex_str, xl, xu, tol, max_iter):
 # MÉTODO 2: REGLA FALSA (FALSA POSICIÓN)
 # ==========================================
 def metodo_falsa_posicion(latex_str, xl, xu, tol, max_iter):
-    x = sp.Symbol('x')
+    # Ya no quemamos x = sp.Symbol('x') aquí, dejamos que se detecte sola
+    
+    # --- BLOQUEO DE SEGURIDAD ---
+    if not latex_str or latex_str.strip() == "":
+        return {
+            "error": True,
+            "titulo": "🛑 Ecuación vacía",
+            "mensaje": "No se recibió ninguna ecuación.",
+            "consejo": "Escribe la función en la pizarra virtual antes de calcular."
+        }
     
     try:
-        # 1. Traducción matemática desde LaTeX
-        funcion_simbolica = parse_latex(latex_str)
+        # === 1. LIMPIEZA EXTREMA Y TRADUCCIÓN ===
+        latex_limpio = latex_str.replace(r'\mathrm{e}', 'e')
+        latex_limpio = latex_limpio.replace(r'\exponentialE', 'e')
+        latex_limpio = latex_limpio.replace(r'\cdot', '*') 
+        latex_limpio = latex_limpio.lower() # Parche anti-X mayúscula y otras letras
         
-        # Un seguro extra por si la 'e' se escapa como símbolo normal
-        funcion_simbolica = funcion_simbolica.subs(sp.Symbol('e'), sp.E)
+        # Traducimos de LaTeX a SymPy
+        funcion_simbolica = parse_latex(latex_limpio)
+        funcion_simbolica = funcion_simbolica.subs(sp.Symbol('e'), sp.E) # Forzamos Euler
         
-        # Convertimos a función evaluable por NumPy
-        f = sp.lambdify(x, funcion_simbolica, 'numpy') 
+        # --- DETECCIÓN DE VARIABLE DINÁMICA ---
+        simbolos_usados = list(funcion_simbolica.free_symbols)
+        # Filtramos constantes por si acaso
+        simbolos_usados = [s for s in simbolos_usados if str(s) not in ['e', 'pi']]
 
-        # 2. LA PRUEBA DE FUEGO: Evaluamos los límites AQUÍ ADENTRO
+        if len(simbolos_usados) > 1:
+            return {
+                "error": True,
+                "titulo": "🛑 Demasiadas Variables",
+                "mensaje": f"Detectamos estas variables: {simbolos_usados}.",
+                "consejo": "Los métodos de una sola raíz solo aceptan 1 variable (ej: solo x o solo t)."
+            }
+        
+        if len(simbolos_usados) == 0:
+            # Si es una constante (ej: f(x) = 5), no hay raíz que buscar
+            return {"error": True, "titulo": "🛑 Sin Variable", "mensaje": "La ecuación no tiene ninguna incógnita."}
+
+        variable_dinamica = simbolos_usados[0]
+        
+        # Convertimos a función evaluable por NumPy usando la variable detectada
+        f = sp.lambdify(variable_dinamica, funcion_simbolica, 'numpy') 
+
+        # PRUEBA DE FUEGO: Evaluamos los límites
         xl_original = xl
         xu_original = xu
-        
-        # Obligamos a que el resultado sea un número decimal (float)
         fxl = float(f(xl))
         fxu = float(f(xu))
 
     except Exception as err:
+        print(f"🛑 Error parseando: {latex_str}")
         return {
             "error": True,
             "titulo": "🛑 Error de Sintaxis Matemática",
-            "mensaje": f"No se pudo calcular la función. Detalle técnico: {str(err)}",
-            "consejo": "Verifica que la ecuación esté completa en la pizarra virtual (ej: que no falten valores en las fracciones o raíces).",
-            "link_sympy": "https://docs.sympy.org/latest/tutorials/intro-tutorial/gotchas.html"
+            "mensaje": f"No se pudo calcular la función. Detalle: {str(err)}",
+            "consejo": "Verifica que la ecuación esté completa (que no falten números en fracciones o potencias)."
         }
 
-    # === Si llegamos aquí, los números son perfectos ===
+    # === VALIDACIÓN DE BOLZANO ===
     if fxl * fxu >= 0:
         return {
             "error": True,
             "titulo": "⚠️ Intervalo sin cambio de signo",
-            "mensaje": f"Evaluamos tus límites y obtuvimos f({xl}) = {round(fxl, 8)} y f({xu}) = {round(fxu, 8)}. Mismo signo.",
-            "consejo": "Para la regla falsa, un resultado debe ser positivo y el otro negativo en el intervalo inicial."
+            "mensaje": f"f({xl}) = {round(fxl, 6)} y f({xu}) = {round(fxu, 6)}. Ambos tienen el mismo signo.",
+            "consejo": "Para Regla Falsa, la función debe cruzar el eje X entre los dos límites."
         }
 
     resultados = []
     xr_anterior = 0
 
+    # === CICLO DE REGLA FALSA ===
     for i in range(1, max_iter + 1):
         fxl = f(xl)
         fxu = f(xu)
         
-        # Evitar división por cero por si la línea se vuelve horizontal
+        # Evitar división por cero (línea horizontal)
         if fxl - fxu == 0:
             break
 
-        # LA FÓRMULA DE REGLA FALSA
+        # LA FÓRMULA DE REGLA FALSA (Intersección de la secante)
         xr = xu - (fxu * (xl - xu)) / (fxl - fxu)
         fxr = f(xr)
 
@@ -215,24 +275,22 @@ def metodo_falsa_posicion(latex_str, xl, xu, tol, max_iter):
 
         resultados.append({
             "iteracion": i,
-            "xl": round(xl, 8),
-            "xu": round(xu, 8),
-            "xr": round(xr, 8),
-            "fxl": round(fxl, 8),
-            "fxr": round(fxr, 8),
-            "ea": round(ea, 8) if i > 1 else "---"
+            "xl": round(float(xl), 8),
+            "xu": round(float(xu), 8),
+            "xr": round(float(xr), 8),
+            "fxl": round(float(fxl), 8),
+            "fxr": round(float(fxr), 8),
+            "ea": round(float(ea), 8) if i > 1 else "---"
         })
 
         if i > 1 and ea < tol:
             break
 
-        # Reemplazo de límites (igual que bisección)
+        # Reemplazo de límites
         if fxl * fxr < 0:
             xu = xr
-        elif fxl * fxr > 0:
-            xl = xr
         else:
-            break
+            xl = xr
 
         xr_anterior = xr
 
@@ -242,12 +300,12 @@ def metodo_falsa_posicion(latex_str, xl, xu, tol, max_iter):
     y_vals = f(x_vals)
 
     plt.figure(figsize=(8, 4))
-    plt.plot(x_vals, y_vals, label='f(x)', color='#198754', linewidth=2) # En verde para distinguirlo
+    plt.plot(x_vals, y_vals, label=f'f({variable_dinamica})', color='#198754', linewidth=2) 
     plt.axhline(0, color='black', linewidth=1) 
     
     plt.axvline(xl_original, color='orange', linestyle='--', label='xl inicial')
     plt.axvline(xu_original, color='purple', linestyle='--', label='xu inicial')
-    plt.plot(xr, 0, 'ro', markersize=8, label=f'Raíz ({round(xr, 8)})')
+    plt.plot(xr, 0, 'ro', markersize=8, label=f'Raíz ({round(float(xr), 6)})')
     
     plt.grid(color='gray', linestyle=':', linewidth=0.5)
     plt.legend()
@@ -261,56 +319,97 @@ def metodo_falsa_posicion(latex_str, xl, xu, tol, max_iter):
 
     return {
         "resultados": resultados, 
-        "raiz": round(xr, 8),
-        "convergencia": "Lineal (Suele ser más rápida que Bisección).",
+        "raiz": round(float(xr), 8),
+        "convergencia": f"Lineal - Se utilizó la variable '{variable_dinamica}'.",
         "grafica": grafica_url
     }
     
 # ==========================================
 # MÉTODO 3: NEWTON-RAPHSON
 # ==========================================
-def metodo_newton_raphson(funcion_str, x0, tol, max_iter):
-    # 1. Limpieza de la función
-    funcion_str = funcion_str.replace('^', '**').replace('ln', 'log').replace('x(', 'x*(').replace('X(', 'x*(')
-    x = sp.Symbol('x')
-    
+def metodo_newton_raphson(latex_str, x0, tol, max_iter):
+    # --- BLOQUEO DE SEGURIDAD ---
+    if not latex_str or latex_str.strip() == "":
+        return {
+            "error": True,
+            "titulo": "🛑 Ecuación vacía",
+            "mensaje": "No se recibió ninguna ecuación.",
+            "consejo": "Por favor, escribe la función en la pizarra virtual antes de calcular."
+        }
+
     try:
-        diccionario_matematico = {'e': sp.E, 'pi': sp.pi}
-        funcion_simbolica = sp.sympify(funcion_str, locals=diccionario_matematico)
-        
-        # MAGIA PURA: SymPy calcula la derivada analítica por nosotros
-        derivada_simbolica = sp.diff(funcion_simbolica, x)
-        
-        f = sp.lambdify(x, funcion_simbolica, 'numpy') 
-        df = sp.lambdify(x, derivada_simbolica, 'numpy') 
+        # === LIMPIEZA EXTREMA Y TRADUCCIÓN ===
+        latex_limpio = latex_str.replace(r'\mathrm{e}', 'e')
+        latex_limpio = latex_limpio.replace(r'\exponentialE', 'e')
+        latex_limpio = latex_limpio.replace(r'\cdot', '*')
+        latex_limpio = latex_limpio.lower() # Anti-mayúsculas
+
+        funcion_simbolica = parse_latex(latex_limpio)
+        funcion_simbolica = funcion_simbolica.subs(sp.Symbol('e'), sp.E)
+
+        # --- VARIABLE DINÁMICA ---
+        simbolos_usados = list(funcion_simbolica.free_symbols)
+        simbolos_usados = [s for s in simbolos_usados if str(s) not in ['e', 'pi']]
+
+        if len(simbolos_usados) > 1:
+            return {
+                "error": True,
+                "titulo": "🛑 Demasiadas Variables",
+                "mensaje": f"Detectamos estas variables: {simbolos_usados}.",
+                "consejo": "Newton-Raphson solo soporta 1 variable (ej: solo x)."
+            }
+
+        if len(simbolos_usados) == 0:
+            return {"error": True, "titulo": "🛑 Sin Variable", "mensaje": "La ecuación no tiene ninguna incógnita."}
+
+        variable_dinamica = simbolos_usados[0]
+
+        # MAGIA PURA: Derivada analítica con la variable dinámica
+        derivada_simbolica = sp.diff(funcion_simbolica, variable_dinamica)
+
+        f = sp.lambdify(variable_dinamica, funcion_simbolica, 'numpy')
+        df = sp.lambdify(variable_dinamica, derivada_simbolica, 'numpy')
+
+        # Prueba de fuego
+        float(f(x0))
+        float(df(x0))
+
     except Exception as err:
+        print(f"🛑 Error parseando: {latex_str}")
         return {
             "error": True,
             "titulo": "🛑 Error de Sintaxis Matemática",
             "mensaje": f"No se pudo evaluar la función o su derivada. Detalle: {str(err)}",
-            "consejo": "Recuerda usar '*' para multiplicaciones y 'exp(x)' en lugar de 'e'.",
-            "link_sympy": "https://docs.sympy.org/latest/tutorials/intro-tutorial/gotchas.html"
+            "consejo": "Verifica que la ecuación esté bien escrita."
         }
 
     resultados = []
-    xi = x0
+    xi = float(x0)
 
     for i in range(1, max_iter + 1):
-        fxi = f(xi)
-        dfxi = df(xi)
-        
-        # Validación crítica: Evitar división por cero si toca un mínimo/máximo
+        try:
+            fxi = float(f(xi))
+            dfxi = float(df(xi))
+        except (OverflowError, TypeError):
+            return {
+                "error": True,
+                "titulo": "🚀 ¡El método explotó (Divergencia)!",
+                "mensaje": f"En la iteración {i}, los números se volvieron demasiado grandes o la raíz se volvió imaginaria.",
+                "consejo": "Newton-Raphson es rápido pero sensible. Prueba con un x0 diferente, más cercano a la raíz real."
+            }
+
+        # Validación crítica: Evitar división por cero
         if dfxi == 0:
             return {
                 "error": True,
                 "titulo": "⚠️ Derivada Cero (Línea Horizontal)",
                 "mensaje": f"En la iteración {i}, la derivada se volvió 0.",
-                "consejo": "El método de Newton falla cuando toca un valle o una cresta de la curva. Intenta con otro valor inicial (x0)."
+                "consejo": "El método falla cuando toca un valle o cresta. Intenta con otro x0."
             }
 
         # Fórmula de Newton-Raphson
         x_siguiente = xi - (fxi / dfxi)
-        
+
         # Calcular error
         ea = abs((x_siguiente - xi) / x_siguiente) * 100 if x_siguiente != 0 else 100
 
@@ -324,29 +423,30 @@ def metodo_newton_raphson(funcion_str, x0, tol, max_iter):
         })
 
         if i > 1 and ea < tol:
+            xi = x_siguiente
             break
-            
+
         xi = x_siguiente
 
     # === GENERAR LA GRÁFICA ===
-    margen = abs(xi - x0) * 0.5 if abs(xi - x0) > 0 else 2
-    x_min = min(x0, xi) - margen
-    x_max = max(x0, xi) + margen
-    
+    margen = abs(xi - float(x0)) * 0.5 if abs(xi - float(x0)) > 0 else 2
+    x_min = min(float(x0), xi) - margen
+    x_max = max(float(x0), xi) + margen
+
     x_vals = np.linspace(x_min, x_max, 200)
-    x_vals = np.where(x_vals == 0, 1e-10, x_vals) 
+    x_vals = np.where(x_vals == 0, 1e-10, x_vals)
     y_vals = f(x_vals)
 
     altura_maxima = max(abs(f(x_min)), abs(f(x_max))) * 3
     y_vals = np.clip(y_vals, -altura_maxima, altura_maxima)
 
     plt.figure(figsize=(8, 4))
-    plt.plot(x_vals, y_vals, label=f'f(x)', color='#dc3545', linewidth=2) # Rojo para Newton
-    plt.axhline(0, color='black', linewidth=1) 
-    
-    plt.axvline(x0, color='orange', linestyle='--', label='x0 inicial')
-    plt.plot(xi, 0, 'go', markersize=8, label=f'Raíz ({round(xi, 8)})') # Punto verde para la raíz
-    
+    plt.plot(x_vals, y_vals, label=f'f({variable_dinamica})', color='#dc3545', linewidth=2) # Rojo para Newton
+    plt.axhline(0, color='black', linewidth=1)
+
+    plt.axvline(float(x0), color='orange', linestyle='--', label='x0 inicial')
+    plt.plot(xi, 0, 'go', markersize=8, label=f'Raíz ({round(xi, 8)})')
+
     plt.grid(color='gray', linestyle=':', linewidth=0.5)
     plt.legend()
     plt.tight_layout()
@@ -358,10 +458,10 @@ def metodo_newton_raphson(funcion_str, x0, tol, max_iter):
     plt.close()
 
     return {
-        "tipo": "abierto", # ¡Clave para que nuestra tabla cambie las columnas!
-        "resultados": resultados, 
+        "tipo": "abierto", # Mantiene la tabla formateada para métodos abiertos
+        "resultados": resultados,
         "raiz": round(xi, 8),
-        "convergencia": "Cuadrática O(n²) - ¡Es rapidísimo! Duplica los decimales correctos en cada paso.",
+        "convergencia": f"Cuadrática O(n²) - Variable usada: '{variable_dinamica}'.",
         "grafica": grafica_url
     }
     
@@ -385,11 +485,40 @@ def metodo_secante(latex_str, x0, x1, tol, max_iter):
         latex_limpio = latex_str.replace(r'\mathrm{e}', 'e')
         latex_limpio = latex_limpio.replace(r'\exponentialE', 'e')
         latex_limpio = latex_limpio.replace(r'\cdot', '*') 
+        latex_limpio = latex_limpio.lower() # Esto convierte TODA la ecuación a minúsculas automáticamente
         
-        # Traducción matemática
+        # Traducimos
         funcion_simbolica = parse_latex(latex_limpio)
         funcion_simbolica = funcion_simbolica.subs(sp.Symbol('e'), sp.E)
-        f = sp.lambdify(x, funcion_simbolica, 'numpy') 
+        
+        # --- NUEVA MAGIA DINÁMICA ---
+        # Detectamos qué letra usó el usuario
+        simbolos_usados = list(funcion_simbolica.free_symbols)
+        
+        # Quitamos constantes como 'e' o 'pi' por si SymPy las confunde con variables
+        simbolos_usados = [s for s in simbolos_usados if str(s) not in ['e', 'pi']]
+
+        if len(simbolos_usados) > 1:
+            return {
+                "error": True,
+                "titulo": "🛑 Demasiadas Variables",
+                "mensaje": f"Detectamos estas variables: {simbolos_usados}. Los métodos de este proyecto solo soportan 1 sola incógnita.",
+                "consejo": "Usa solo una letra (ej: solo x, o solo t)."
+            }
+        
+        if len(simbolos_usados) == 0:
+            return {
+                "error": True,
+                "titulo": "🛑 Falta la Variable",
+                "mensaje": "La ecuación es solo un número constante.",
+                "consejo": "Asegúrate de incluir una variable (como x) en tu función."
+            }
+
+        # Asignamos la letra que el usuario escogió
+        variable_dinamica = simbolos_usados[0]
+
+        # Convertimos la función para que NumPy la pueda evaluar usando ESA letra
+        f = sp.lambdify(variable_dinamica, funcion_simbolica, 'numpy')
 
         # Prueba de fuego numérica con los valores iniciales
         float(f(x0))
@@ -488,8 +617,6 @@ def metodo_secante(latex_str, x0, x1, tol, max_iter):
 # MÉTODO 5: SERIES DE TAYLOR
 # ==========================================
 def serie_taylor(latex_str, x0, x_eval, orden):
-    x = sp.Symbol('x')
-    
     # --- BLOQUEO DE SEGURIDAD ---
     if not latex_str or latex_str.strip() == "":
         return {
@@ -504,24 +631,42 @@ def serie_taylor(latex_str, x0, x_eval, orden):
         latex_limpio = latex_str.replace(r'\mathrm{e}', 'e')
         latex_limpio = latex_limpio.replace(r'\exponentialE', 'e')
         latex_limpio = latex_limpio.replace(r'\cdot', '*') 
+        latex_limpio = latex_limpio.lower() # Parche anti-mayúsculas
         
         # Traducción matemática
         f_simbolica = parse_latex(latex_limpio)
         f_simbolica = f_simbolica.subs(sp.Symbol('e'), sp.E)
         
-        f_numpy = sp.lambdify(x, f_simbolica, 'numpy') 
+        # --- VARIABLE DINÁMICA ---
+        simbolos_usados = list(f_simbolica.free_symbols)
+        simbolos_usados = [s for s in simbolos_usados if str(s) not in ['e', 'pi']]
+
+        if len(simbolos_usados) > 1:
+            return {
+                "error": True,
+                "titulo": "🛑 Demasiadas Variables",
+                "mensaje": f"Detectamos estas variables: {simbolos_usados}.",
+                "consejo": "El método de Taylor en este proyecto solo soporta funciones de 1 variable."
+            }
+        
+        if len(simbolos_usados) == 0:
+            return {"error": True, "titulo": "🛑 Sin Variable", "mensaje": "La ecuación no tiene ninguna incógnita."}
+
+        variable_dinamica = simbolos_usados[0]
+        
+        # Convertimos la función usando nuestra letra dinámica
+        f_numpy = sp.lambdify(variable_dinamica, f_simbolica, 'numpy') 
         
         # Evaluamos el valor verdadero desde el inicio
         valor_verdadero = float(f_numpy(x_eval))
         
     except Exception as err:
-        print(f"==============\n🛑 FALLA AL PARSEAR:\nTexto original: '{latex_str}'\nTexto limpio: '{latex_limpio}'\n==============") 
-        
+        print(f"🛑 Error parseando: {latex_str}") 
         return {
             "error": True,
             "titulo": "🛑 Error de Sintaxis Matemática",
             "mensaje": f"SymPy no pudo entender la función. Detalle: {str(err)}",
-            "consejo": "Revisa la consola (terminal) de VS Code para ver qué texto exacto envió MathLive."
+            "consejo": "Verifica que la ecuación esté bien escrita."
         }
 
     resultados = []
@@ -530,17 +675,27 @@ def serie_taylor(latex_str, x0, x_eval, orden):
     polinomio_taylor = 0
 
     for i in range(orden + 1):
-        # 1. Evaluar la derivada en el punto x0
-        df_x0 = derivada_actual.subs(x, x0).evalf()
-        
-        # 2. Armar el término algebraico: ( f^(n)(x0) / n! ) * (x - x0)^n
-        termino_algebraico = (df_x0 / math.factorial(i)) * (x - x0)**i
-        polinomio_taylor += termino_algebraico
-        
-        # 3. Evaluar el término en el punto x solicitado (x_eval)
-        valor_termino = termino_algebraico.subs(x, x_eval).evalf()
-        aproximacion += valor_termino
-        
+        try:
+            # 1. Evaluar la derivada en el punto x0 usando la letra correcta
+            df_x0 = derivada_actual.subs(variable_dinamica, x0).evalf()
+            
+            # 2. Armar el término algebraico: ( f^(n)(x0) / n! ) * (variable - x0)^n
+            termino_algebraico = (df_x0 / math.factorial(i)) * (variable_dinamica - x0)**i
+            polinomio_taylor += termino_algebraico
+            
+            # 3. Evaluar el término en el punto solicitado (x_eval)
+            valor_termino = termino_algebraico.subs(variable_dinamica, x_eval).evalf()
+            aproximacion += valor_termino
+            
+        except (OverflowError, TypeError):
+            # Seguro por si la serie estalla (Radio de Convergencia excedido)
+            return {
+                "error": True,
+                "titulo": "🚀 ¡La Serie Explotó!",
+                "mensaje": f"En el orden {i}, los números se volvieron demasiado grandes o imaginarios.",
+                "consejo": "El punto a evaluar está demasiado lejos del centro. ¡Has excedido el radio de convergencia de esta función!"
+            }
+
         # 4. Calcular Error Verdadero (Et)
         if valor_verdadero != 0:
             et = abs((valor_verdadero - aproximacion) / valor_verdadero) * 100
@@ -556,8 +711,8 @@ def serie_taylor(latex_str, x0, x_eval, orden):
             "et": round(float(et), 8)
         })
 
-        # Preparar la siguiente derivada
-        derivada_actual = sp.diff(derivada_actual, x)
+        # Preparar la siguiente derivada usando nuestra letra
+        derivada_actual = sp.diff(derivada_actual, variable_dinamica)
 
     # === GENERAR LA GRÁFICA (Comparativa) ===
     margen = abs(x_eval - x0) + 1
@@ -569,7 +724,7 @@ def serie_taylor(latex_str, x0, x_eval, orden):
     y_vals_original = f_numpy(x_vals)
     
     # Evaluar el polinomio de Taylor completo para la gráfica
-    p_numpy = sp.lambdify(x, polinomio_taylor, 'numpy')
+    p_numpy = sp.lambdify(variable_dinamica, polinomio_taylor, 'numpy')
     y_vals_taylor = p_numpy(x_vals)
     
     # Si el polinomio resulta ser una constante, numpy necesita un array del mismo tamaño
@@ -578,13 +733,13 @@ def serie_taylor(latex_str, x0, x_eval, orden):
 
     plt.figure(figsize=(8, 5))
     # Función real
-    plt.plot(x_vals, y_vals_original, label='Original: f(x)', color='black', linewidth=3) 
+    plt.plot(x_vals, y_vals_original, label=f'Original: f({variable_dinamica})', color='black', linewidth=3) 
     # Aproximación de Taylor
     plt.plot(x_vals, y_vals_taylor, label=f'Polinomio Taylor (Orden {orden})', color='#ffc107', linestyle='--', linewidth=2) 
     
     plt.axhline(0, color='gray', linewidth=1) 
-    plt.axvline(x0, color='orange', linestyle=':', label='x0 (Centro)')
-    plt.axvline(x_eval, color='purple', linestyle=':', label='x a evaluar')
+    plt.axvline(x0, color='orange', linestyle=':', label=f'{variable_dinamica}0 (Centro)')
+    plt.axvline(x_eval, color='purple', linestyle=':', label=f'{variable_dinamica} a evaluar')
     
     plt.plot(x_eval, float(valor_verdadero), 'ko', label=f'Valor Real ({round(float(valor_verdadero), 8)})')
     plt.plot(x_eval, float(aproximacion), 'yo', label=f'Aprox ({round(float(aproximacion), 8)})')
@@ -609,8 +764,8 @@ def serie_taylor(latex_str, x0, x_eval, orden):
     return {
         "tipo": "taylor", 
         "resultados": resultados, 
-        "raiz": round(float(aproximacion), 8), # Reusamos la tarjeta verde para mostrar la aproximación
-        "convergencia": "Aproximación Polinomial (A mayor orden n, menor es el error).",
+        "raiz": round(float(aproximacion), 8), 
+        "convergencia": f"Aproximación Polinomial. Variable usada: '{variable_dinamica}'.",
         "grafica": grafica_url
     }
     
@@ -618,8 +773,6 @@ def serie_taylor(latex_str, x0, x_eval, orden):
 # MÉTODO 6: PUNTO FIJO (CON PREDICTOR)
 # ==========================================
 def metodo_punto_fijo(latex_gx_str, x0, tol, max_iter):
-    x = sp.Symbol('x')
-    
     # --- BLOQUEO DE SEGURIDAD ---
     if not latex_gx_str or latex_gx_str.strip() == "":
         return {
@@ -634,45 +787,71 @@ def metodo_punto_fijo(latex_gx_str, x0, tol, max_iter):
         latex_limpio = latex_gx_str.replace(r'\mathrm{e}', 'e')
         latex_limpio = latex_limpio.replace(r'\exponentialE', 'e')
         latex_limpio = latex_limpio.replace(r'\cdot', '*') 
+        latex_limpio = latex_limpio.lower() # Anti-mayúsculas
         
         # Traducción matemática
         g_simbolica = parse_latex(latex_limpio)
         g_simbolica = g_simbolica.subs(sp.Symbol('e'), sp.E)
         
-        g = sp.lambdify(x, g_simbolica, 'numpy') 
+        # --- VARIABLE DINÁMICA ---
+        simbolos_usados = list(g_simbolica.free_symbols)
+        simbolos_usados = [s for s in simbolos_usados if str(s) not in ['e', 'pi']]
+
+        if len(simbolos_usados) > 1:
+            return {
+                "error": True,
+                "titulo": "🛑 Demasiadas Variables",
+                "mensaje": f"Detectamos estas variables: {simbolos_usados}.",
+                "consejo": "Punto Fijo solo soporta 1 variable en el despeje."
+            }
+        
+        if len(simbolos_usados) == 0:
+            return {"error": True, "titulo": "🛑 Sin Variable", "mensaje": "La ecuación no tiene ninguna incógnita."}
+
+        variable_dinamica = simbolos_usados[0]
+        
+        # Convertimos la función a NumPy usando la variable detectada
+        g = sp.lambdify(variable_dinamica, g_simbolica, 'numpy') 
         
         # EL PREDICTOR DE CONVERGENCIA (La magia)
-        derivada_g = sp.diff(g_simbolica, x) # Derivamos g(x)
-        dg = sp.lambdify(x, derivada_g, 'numpy')
+        # Derivamos g usando nuestra variable dinámica (CRÍTICO)
+        derivada_g = sp.diff(g_simbolica, variable_dinamica) 
+        dg = sp.lambdify(variable_dinamica, derivada_g, 'numpy')
         
         # Evaluamos el valor absoluto de g'(x0)
         criterio_convergencia = abs(float(dg(x0)))
         
         # Generamos el diagnóstico
         if criterio_convergencia < 1:
-            diagnostico = f"¡Excelente despeje! |g'(x0)| = {round(criterio_convergencia, 8)} < 1. Convergencia garantizada."
-            color_diag = "success"
+            diagnostico = f"¡Excelente despeje! |g'({variable_dinamica}0)| = {round(criterio_convergencia, 8)} < 1. Convergencia garantizada."
         else:
-            diagnostico = f"¡Alerta de Divergencia! |g'(x0)| = {round(criterio_convergencia, 8)} > 1. Es muy probable que la función explote al infinito."
-            color_diag = "danger"
+            diagnostico = f"¡Alerta de Divergencia! |g'({variable_dinamica}0)| = {round(criterio_convergencia, 8)} > 1. La función explotará al infinito."
 
     except Exception as err:
-        print(f"==============\n🛑 FALLA AL PARSEAR:\nTexto original: '{latex_gx_str}'\nTexto limpio: '{latex_limpio}'\n==============") 
-        
+        print(f"🛑 Error parseando: {latex_gx_str}") 
         return {
             "error": True,
             "titulo": "🛑 Error de Sintaxis Matemática",
-            "mensaje": f"No se pudo evaluar g(x) o su derivada. Detalle: {str(err)}",
+            "mensaje": f"No se pudo evaluar la función o su derivada. Detalle: {str(err)}",
             "consejo": "Revisa que la ecuación esté completa en la pizarra virtual."
         }
 
     resultados = []
-    xi = x0
+    xi = float(x0)
     diverge = False
 
     for i in range(1, max_iter + 1):
         try:
+            # Intentamos evaluar y forzar a que sea un número decimal normal
             gxi = float(g(xi))
+        except TypeError:
+            # Si da TypeError, la raíz dio un número imaginario
+            return {
+                "error": True,
+                "titulo": "🛑 Raíz Compleja o Variable Inválida",
+                "mensaje": f"En la iteración {i}, el cálculo generó un número imaginario (raíz negativa).",
+                "consejo": "Para este valor inicial, la función no tiene solución real. ¡Intenta con otro valor o revisa tu despeje!"
+            }
         except OverflowError:
             diverge = True
             break
@@ -701,13 +880,13 @@ def metodo_punto_fijo(latex_gx_str, x0, tol, max_iter):
             "error": True,
             "titulo": "🚀 ¡El método explotó (Divergencia)!",
             "mensaje": diagnostico, 
-            "consejo": "Esta calculadora hace milagros, pero no sabe despejar por ti. Si no sabes hacer un despeje algebraico válido para llegar a g(x), deberías considerar seriamente regresar al curso propedéutico. 📚"
+            "consejo": "Esta calculadora hace milagros, pero no sabe despejar por ti. Si no sabes hacer un despeje algebraico válido, te toca repasar las reglas del álgebra. 📚"
         }
 
     # === GENERAR LA GRÁFICA ===
-    margen = abs(xi - x0) + 2
-    x_min = min(x0, xi) - margen
-    x_max = max(x0, xi) - margen if max(x0, xi) == min(x0, xi) else max(x0, xi) + margen
+    margen = abs(xi - float(x0)) + 2
+    x_min = min(float(x0), xi) - margen
+    x_max = max(float(x0), xi) - margen if max(float(x0), xi) == min(float(x0), xi) else max(float(x0), xi) + margen
     
     x_vals = np.linspace(x_min, x_max, 200)
     x_vals = np.where(x_vals == 0, 1e-10, x_vals) 
@@ -718,10 +897,10 @@ def metodo_punto_fijo(latex_gx_str, x0, tol, max_iter):
     y_vals_g = np.clip(y_vals_g, -altura_maxima, altura_maxima)
 
     plt.figure(figsize=(8, 5))
-    plt.plot(x_vals, y_vals_g, label='g(x)', color='#6f42c1', linewidth=2) 
-    plt.plot(x_vals, y_vals_identidad, label='y = x', color='gray', linestyle='--', linewidth=1.5) 
+    plt.plot(x_vals, y_vals_g, label=f'g({variable_dinamica})', color='#6f42c1', linewidth=2) 
+    plt.plot(x_vals, y_vals_identidad, label=f'y = {variable_dinamica}', color='gray', linestyle='--', linewidth=1.5) 
     plt.axhline(0, color='black', linewidth=1) 
-    plt.axvline(x0, color='orange', linestyle=':', label='x0 inicial')
+    plt.axvline(float(x0), color='orange', linestyle=':', label=f'{variable_dinamica}0 inicial')
     plt.plot(xi, xi, 'ro', markersize=8, label=f'Raíz ({round(xi, 8)})') 
     
     plt.grid(color='gray', linestyle=':', linewidth=0.5)
@@ -746,8 +925,6 @@ def metodo_punto_fijo(latex_gx_str, x0, tol, max_iter):
 # MÉTODO 7: MÉTODO DE HORNER
 # ==========================================
 def metodo_horner(latex_str, x0):
-    x = sp.Symbol('x')
-    
     # --- BLOQUEO DE SEGURIDAD ---
     if not latex_str or latex_str.strip() == "":
         return {
@@ -758,36 +935,53 @@ def metodo_horner(latex_str, x0):
         }
     
     try:
-        # === LIMPIEZA EXTREMA DEL LATEX ===
+        # === 1. LIMPIEZA Y TRADUCCIÓN ===
         latex_limpio = latex_str.replace(r'\mathrm{e}', 'e')
         latex_limpio = latex_limpio.replace(r'\exponentialE', 'e')
         latex_limpio = latex_limpio.replace(r'\cdot', '*') 
+        latex_limpio = latex_limpio.lower() # Parche anti-X mayúscula
         
-        # Traducción matemática
         f_simbolica = parse_latex(latex_limpio)
         f_simbolica = f_simbolica.subs(sp.Symbol('e'), sp.E)
         
-        # Validación de seguridad: ¿Es realmente un polinomio?
-        if not f_simbolica.is_polynomial(x):
+        # --- DETECCIÓN DE VARIABLE DINÁMICA ---
+        simbolos_usados = list(f_simbolica.free_symbols)
+        # Filtramos constantes
+        simbolos_usados = [s for s in simbolos_usados if str(s) not in ['e', 'pi']]
+
+        if len(simbolos_usados) > 1:
+            return {
+                "error": True,
+                "titulo": "🛑 Demasiadas Variables",
+                "mensaje": f"Detectamos estas variables: {simbolos_usados}.",
+                "consejo": "El método de Horner solo funciona con polinomios de 1 sola variable."
+            }
+        
+        if len(simbolos_usados) == 0:
+            return {"error": True, "titulo": "🛑 Sin Variable", "mensaje": "La ecuación no tiene ninguna incógnita (ej: x)."}
+
+        variable_dinamica = simbolos_usados[0]
+
+        # Validación de seguridad: ¿Es realmente un polinomio en la letra detectada?
+        if not f_simbolica.is_polynomial(variable_dinamica):
             return {
                 "error": True,
                 "titulo": "🛑 Función No Polinomial",
-                "mensaje": "El Método de Horner es una técnica de división sintética que SOLO funciona con polinomios.",
-                "consejo": "Ingresa una función polinomial válida (Ej: 2x^3 - 4x^2 + x - 5). No uses fracciones con x en el denominador, trigonométricas o logaritmos."
+                "mensaje": f"Horner SOLO funciona con polinomios en '{variable_dinamica}'.",
+                "consejo": f"Asegúrate de que '{variable_dinamica}' no esté en denominadores, raíces o dentro de funciones como seno/logaritmo."
             }
             
-        polinomio = sp.Poly(f_simbolica, x)
-        coeffs = polinomio.all_coeffs() # Extrae todos los coeficientes, incluyendo ceros implícitos
+        polinomio = sp.Poly(f_simbolica, variable_dinamica)
+        coeffs = polinomio.all_coeffs() # Extrae todos los coeficientes
         n = polinomio.degree()
         
     except Exception as err:
-        print(f"==============\n🛑 FALLA AL PARSEAR:\nTexto original: '{latex_str}'\nTexto limpio: '{latex_limpio}'\n==============") 
-        
+        print(f"🛑 Error parseando Horner: {latex_str}") 
         return {
             "error": True,
             "titulo": "🛑 Error de Sintaxis Matemática",
             "mensaje": f"No se pudo evaluar el polinomio. Detalle: {str(err)}",
-            "consejo": "Revisa la consola (terminal) de VS Code para ver qué texto exacto envió MathLive."
+            "consejo": "Verifica que el polinomio esté bien escrito en la pizarra."
         }
 
     resultados = []
@@ -801,7 +995,7 @@ def metodo_horner(latex_str, x0):
         "b": round(b_actual, 8)
     })
     
-    # El ciclo de Horner
+    # El ciclo de Horner (División sintética)
     for i in range(1, len(coeffs)):
         grado_actual = n - i
         a_i = float(coeffs[i])
@@ -817,9 +1011,7 @@ def metodo_horner(latex_str, x0):
         b_actual = b_nuevo
 
     # === GENERAR LA GRÁFICA ===
-    f_numpy = sp.lambdify(x, f_simbolica, 'numpy') 
-    
-    # Aseguramos que x0 sea un float (por si SymPy lo devuelve como objeto)
+    f_numpy = sp.lambdify(variable_dinamica, f_simbolica, 'numpy') 
     x0_float = float(x0)
     
     margen = abs(x0_float) * 0.5 if x0_float != 0 else 5
@@ -830,11 +1022,11 @@ def metodo_horner(latex_str, x0):
     y_vals = f_numpy(x_vals)
 
     plt.figure(figsize=(8, 4))
-    plt.plot(x_vals, y_vals, label='P(x)', color='#fd7e14', linewidth=2) # Naranja para Horner
+    plt.plot(x_vals, y_vals, label=f'P({variable_dinamica})', color='#fd7e14', linewidth=2) 
     plt.axhline(0, color='black', linewidth=1) 
     
     # Dibujar el punto evaluado
-    plt.axvline(x0_float, color='gray', linestyle=':', label=f'x0 = {x0_float}')
+    plt.axvline(x0_float, color='gray', linestyle=':', label=f'{variable_dinamica}0 = {x0_float}')
     plt.plot(x0_float, b_actual, 'bo', markersize=8, label=f'P({x0_float}) = {round(b_actual, 4)}') 
     
     plt.grid(color='gray', linestyle=':', linewidth=0.5)
@@ -850,8 +1042,8 @@ def metodo_horner(latex_str, x0):
     return {
         "tipo": "horner", 
         "resultados": resultados, 
-        "raiz": round(b_actual, 8), # Usamos el espacio de "raíz" para mostrar el residuo/evaluación final
-        "convergencia": "Evaluación Polinomial / División Sintética Exitosa.",
+        "raiz": round(b_actual, 8), 
+        "convergencia": f"Evaluación exitosa usando la variable '{variable_dinamica}'.",
         "grafica": grafica_url
     }
     
@@ -859,8 +1051,6 @@ def metodo_horner(latex_str, x0):
 # MÉTODO 8: HORNER-NEWTON (BIRGE-VIETA)
 # ==========================================
 def metodo_horner_newton(latex_str, x0, tol, max_iter):
-    x = sp.Symbol('x')
-    
     # --- BLOQUEO DE SEGURIDAD ---
     if not latex_str or latex_str.strip() == "":
         return {
@@ -875,23 +1065,41 @@ def metodo_horner_newton(latex_str, x0, tol, max_iter):
         latex_limpio = latex_str.replace(r'\mathrm{e}', 'e')
         latex_limpio = latex_limpio.replace(r'\exponentialE', 'e')
         latex_limpio = latex_limpio.replace(r'\cdot', '*') 
+        latex_limpio = latex_limpio.lower() # Parche anti-mayúsculas
         
         # Traducción matemática
         f_simbolica = parse_latex(latex_limpio)
         f_simbolica = f_simbolica.subs(sp.Symbol('e'), sp.E)
         
-        # Validación de seguridad: ¡Solo polinomios!
-        if not f_simbolica.is_polynomial(x):
+        # --- DETECCIÓN DE VARIABLE DINÁMICA ---
+        simbolos_usados = list(f_simbolica.free_symbols)
+        simbolos_usados = [s for s in simbolos_usados if str(s) not in ['e', 'pi']]
+
+        if len(simbolos_usados) > 1:
+            return {
+                "error": True,
+                "titulo": "🛑 Demasiadas Variables",
+                "mensaje": f"Detectamos estas variables: {simbolos_usados}.",
+                "consejo": "Horner-Newton solo funciona con polinomios de 1 sola variable."
+            }
+        
+        if len(simbolos_usados) == 0:
+            return {"error": True, "titulo": "🛑 Sin Variable", "mensaje": "La ecuación no tiene ninguna incógnita."}
+
+        variable_dinamica = simbolos_usados[0]
+
+        # Validación de seguridad: ¡Solo polinomios! (Usando la variable detectada)
+        if not f_simbolica.is_polynomial(variable_dinamica):
             return {
                 "error": True,
                 "titulo": "🛑 Función No Polinomial",
-                "mensaje": "El Método de Horner-Newton utiliza doble división sintética y SOLO funciona con polinomios.",
-                "consejo": "Ingresa una función polinomial válida (Ej: x^3 - 2x^2 - 5). No uses fracciones con x abajo, senos o logaritmos."
+                "mensaje": f"El Método de Horner-Newton utiliza doble división sintética y SOLO funciona con polinomios en '{variable_dinamica}'.",
+                "consejo": f"Ingresa una función polinomial válida (Ej: {variable_dinamica}^3 - 2{variable_dinamica}^2 - 5). No uses fracciones con incógnitas abajo, senos o logaritmos."
             }
             
-        polinomio = sp.Poly(f_simbolica, x)
+        polinomio = sp.Poly(f_simbolica, variable_dinamica)
         coeffs = polinomio.all_coeffs() 
-        f_numpy = sp.lambdify(x, f_simbolica, 'numpy') 
+        f_numpy = sp.lambdify(variable_dinamica, f_simbolica, 'numpy') 
         
     except Exception as err:
         print(f"==============\n🛑 FALLA AL PARSEAR:\nTexto original: '{latex_str}'\nTexto limpio: '{latex_limpio}'\n==============") 
@@ -924,7 +1132,7 @@ def metodo_horner_newton(latex_str, x0, tol, max_iter):
                 "error": True,
                 "titulo": "⚠️ Derivada Cero (Línea Horizontal)",
                 "mensaje": f"En la iteración {i}, la segunda división sintética (derivada) dio 0.",
-                "consejo": "El método falla porque genera división por cero. Intenta con un x0 diferente."
+                "consejo": "El método falla porque genera división por cero. Intenta con un valor inicial diferente."
             }
 
         # Fórmula de Newton usando los residuos de Horner
@@ -959,10 +1167,10 @@ def metodo_horner_newton(latex_str, x0, tol, max_iter):
     y_vals = np.clip(y_vals, -altura_maxima, altura_maxima)
 
     plt.figure(figsize=(8, 4))
-    plt.plot(x_vals, y_vals, label='P(x)', color='#20c997', linewidth=2) # Color Teal
+    plt.plot(x_vals, y_vals, label=f'P({variable_dinamica})', color='#20c997', linewidth=2) # Color Teal
     plt.axhline(0, color='black', linewidth=1) 
     
-    plt.axvline(float(x0), color='orange', linestyle='--', label='x0 inicial')
+    plt.axvline(float(x0), color='orange', linestyle='--', label=f'{variable_dinamica}0 inicial')
     plt.plot(xi, 0, 'go', markersize=8, label=f'Raíz ({round(xi, 8)})') 
     
     plt.grid(color='gray', linestyle=':', linewidth=0.5)
@@ -979,7 +1187,7 @@ def metodo_horner_newton(latex_str, x0, tol, max_iter):
         "tipo": "horner_newton", 
         "resultados": resultados, 
         "raiz": round(xi, 8),
-        "convergencia": "Cuadrática O(n²) usando Doble División Sintética.",
+        "convergencia": f"Cuadrática usando '{variable_dinamica}' y Doble División Sintética.",
         "grafica": grafica_url
     }
     
@@ -987,8 +1195,6 @@ def metodo_horner_newton(latex_str, x0, tol, max_iter):
 # MÉTODO 9: MÉTODO DE MÜLLER
 # ==========================================
 def metodo_muller(latex_str, x0, x1, x2, tol, max_iter):
-    x = sp.Symbol('x')
-    
     # --- BLOQUEO DE SEGURIDAD ---
     if not latex_str or latex_str.strip() == "":
         return {
@@ -1003,11 +1209,31 @@ def metodo_muller(latex_str, x0, x1, x2, tol, max_iter):
         latex_limpio = latex_str.replace(r'\mathrm{e}', 'e')
         latex_limpio = latex_limpio.replace(r'\exponentialE', 'e')
         latex_limpio = latex_limpio.replace(r'\cdot', '*') 
+        latex_limpio = latex_limpio.lower() # Parche anti-mayúsculas
         
         # Traducción matemática
         f_simbolica = parse_latex(latex_limpio)
         f_simbolica = f_simbolica.subs(sp.Symbol('e'), sp.E)
-        f = sp.lambdify(x, f_simbolica, 'numpy') 
+        
+        # --- DETECCIÓN DE VARIABLE DINÁMICA ---
+        simbolos_usados = list(f_simbolica.free_symbols)
+        simbolos_usados = [s for s in simbolos_usados if str(s) not in ['e', 'pi']]
+
+        if len(simbolos_usados) > 1:
+            return {
+                "error": True,
+                "titulo": "🛑 Demasiadas Variables",
+                "mensaje": f"Detectamos estas variables: {simbolos_usados}.",
+                "consejo": "El Método de Müller solo soporta funciones de 1 variable."
+            }
+        
+        if len(simbolos_usados) == 0:
+            return {"error": True, "titulo": "🛑 Sin Variable", "mensaje": "La ecuación no tiene ninguna incógnita."}
+
+        variable_dinamica = simbolos_usados[0]
+
+        # Pasamos a NumPy usando la variable detectada
+        f = sp.lambdify(variable_dinamica, f_simbolica, 'numpy') 
 
         # Prueba de fuego con los 3 puntos iniciales
         complex(f(x0))
@@ -1015,12 +1241,12 @@ def metodo_muller(latex_str, x0, x1, x2, tol, max_iter):
         complex(f(x2))
 
     except Exception as err:
-        print(f"==============\n🛑 FALLA AL PARSEAR:\nTexto original: '{latex_str}'\nTexto limpio: '{latex_limpio}'\n==============") 
+        print(f"🛑 Error parseando Müller: {latex_str}") 
         return {
             "error": True,
             "titulo": "🛑 Error de Sintaxis Matemática",
             "mensaje": f"No se pudo evaluar la función. Detalle: {str(err)}",
-            "consejo": "Revisa la consola (terminal) de VS Code para ver qué texto exacto envió MathLive."
+            "consejo": "Revisa que la ecuación esté completa en la pizarra virtual."
         }
 
     resultados = []
@@ -1028,6 +1254,16 @@ def metodo_muller(latex_str, x0, x1, x2, tol, max_iter):
     # Usamos números complejos internamente por si la raíz lo requiere
     h0 = x1 - x0
     h1 = x2 - x1
+    
+    # Pequeño seguro contra división por cero en el arranque
+    if h0 == 0 or h1 == 0:
+        return {
+            "error": True,
+            "titulo": "🛑 Puntos Iniciales Inválidos",
+            "mensaje": "Los puntos x0, x1 y x2 no pueden ser iguales.",
+            "consejo": "Elige tres puntos iniciales distintos para trazar la parábola."
+        }
+
     d0 = (f(x1) - f(x0)) / h0
     d1 = (f(x2) - f(x1)) / h1
     a = (d1 - d0) / (h1 + h0)
@@ -1044,6 +1280,9 @@ def metodo_muller(latex_str, x0, x1, x2, tol, max_iter):
             denominador = b + discriminante
         else:
             denominador = b - discriminante
+            
+        if denominador == 0:
+            break
             
         dx = -2 * c / denominador
         x3 = x2 + dx
@@ -1068,6 +1307,10 @@ def metodo_muller(latex_str, x0, x1, x2, tol, max_iter):
         x0, x1, x2 = x1, x2, x3
         h0 = x1 - x0
         h1 = x2 - x1
+        
+        if h0 == 0 or h1 == 0 or (h1 + h0) == 0:
+            break
+
         d0 = (f(x1) - f(x0)) / h0
         d1 = (f(x2) - f(x1)) / h1
         a = (d1 - d0) / (h1 + h0)
@@ -1080,7 +1323,7 @@ def metodo_muller(latex_str, x0, x1, x2, tol, max_iter):
     y_vals = f(x_vals)
 
     plt.figure(figsize=(8, 4))
-    plt.plot(x_vals, y_vals, label='f(x)', color='#e83e8c', linewidth=2) # Rosado para Müller
+    plt.plot(x_vals, y_vals, label=f'f({variable_dinamica})', color='#e83e8c', linewidth=2) # Rosado para Müller
     plt.axhline(0, color='black', linewidth=1)
     plt.plot(x3.real, 0, 'ro', markersize=8, label=f'Raíz ({round(x3.real, 4)})')
     plt.grid(color='gray', linestyle=':', linewidth=0.5)
@@ -1097,7 +1340,7 @@ def metodo_muller(latex_str, x0, x1, x2, tol, max_iter):
         "tipo": "muller",
         "resultados": resultados,
         "raiz": round(x3.real, 8),
-        "convergencia": "Superlineal (Casi cuadrática). Puede encontrar raíces complejas.",
+        "convergencia": f"Superlineal. Puede hallar raíces complejas. Variable usada: '{variable_dinamica}'.",
         "grafica": grafica_url
     }
     
@@ -1105,8 +1348,6 @@ def metodo_muller(latex_str, x0, x1, x2, tol, max_iter):
 # MÉTODO 10: MÉTODO DE BAIRSTOW (CORREGIDO)
 # ==========================================
 def metodo_bairstow(latex_str, r, s, tol, max_iter):
-    x = sp.Symbol('x')
-    
     # --- BLOQUEO DE SEGURIDAD ---
     if not latex_str or latex_str.strip() == "":
         return {
@@ -1121,31 +1362,50 @@ def metodo_bairstow(latex_str, r, s, tol, max_iter):
         latex_limpio = latex_str.replace(r'\mathrm{e}', 'e')
         latex_limpio = latex_limpio.replace(r'\exponentialE', 'e')
         latex_limpio = latex_limpio.replace(r'\cdot', '*') 
+        latex_limpio = latex_limpio.lower() # Parche anti-mayúsculas
         
         # Traducción matemática
         f_simbolica = parse_latex(latex_limpio)
         f_simbolica = f_simbolica.subs(sp.Symbol('e'), sp.E)
         
-        if not f_simbolica.is_polynomial(x):
+        # --- DETECCIÓN DE VARIABLE DINÁMICA ---
+        simbolos_usados = list(f_simbolica.free_symbols)
+        simbolos_usados = [sym for sym in simbolos_usados if str(sym) not in ['e', 'pi']]
+
+        if len(simbolos_usados) > 1:
+            return {
+                "error": True,
+                "titulo": "🛑 Demasiadas Variables",
+                "mensaje": f"Detectamos estas variables: {simbolos_usados}.",
+                "consejo": "Bairstow solo funciona con polinomios de 1 sola variable."
+            }
+        
+        if len(simbolos_usados) == 0:
+            return {"error": True, "titulo": "🛑 Sin Variable", "mensaje": "La ecuación no tiene ninguna incógnita."}
+
+        variable_dinamica = simbolos_usados[0]
+
+        # Validación de seguridad: ¡Solo polinomios usando la variable dinámica!
+        if not f_simbolica.is_polynomial(variable_dinamica):
             return {
                 "error": True,
                 "titulo": "🛑 No es un Polinomio",
-                "mensaje": "El método de Bairstow solo funciona con funciones polinomiales.",
-                "consejo": "Ingresa una función polinomial válida (Ej: x^4 - 3x^3 + 2x - 1)."
+                "mensaje": f"El método de Bairstow solo funciona con funciones polinomiales puras en '{variable_dinamica}'.",
+                "consejo": f"Ingresa una función polinomial válida (Ej: {variable_dinamica}^4 - 3{variable_dinamica}^3 + 2{variable_dinamica} - 1)."
             }
             
-        polinomio = sp.Poly(f_simbolica, x)
+        polinomio = sp.Poly(f_simbolica, variable_dinamica)
         a = [float(c) for c in polinomio.all_coeffs()]
         a.reverse() 
         n = len(a) - 1
         
     except Exception as err:
-        print(f"==============\n🛑 FALLA AL PARSEAR:\nTexto original: '{latex_str}'\nTexto limpio: '{latex_limpio}'\n==============") 
+        print(f"🛑 Error parseando Bairstow: {latex_str}") 
         return {
             "error": True, 
             "titulo": "🛑 Error de Sintaxis Matemática", 
             "mensaje": f"No se pudo evaluar el polinomio. Detalle: {str(err)}",
-            "consejo": "Revisa la consola (terminal) de VS Code para ver qué texto exacto envió MathLive."
+            "consejo": "Revisa que la ecuación esté completa en la pizarra virtual."
         }
 
     resultados = []
@@ -1196,20 +1456,24 @@ def metodo_bairstow(latex_str, r, s, tol, max_iter):
             break
 
     disc = current_r**2 + 4 * current_s
+    
+    # Armamos la respuesta de la raíz usando la variable que el usuario ingresó
+    var = str(variable_dinamica)
+    
     if disc >= 0:
         x1 = (current_r + math.sqrt(disc)) / 2
         x2 = (current_r - math.sqrt(disc)) / 2
-        raiz_str = f"x1: {round(x1, 8)}, x2: {round(x2, 8)}"
+        raiz_str = f"{var}1: {round(x1, 8)}, {var}2: {round(x2, 8)}"
     else:
         real = current_r / 2
         imag = math.sqrt(-disc) / 2
-        raiz_str = f"x1,2: {round(real, 8)} ± {round(imag, 8)}i"
+        raiz_str = f"{var}1,2: {round(real, 8)} ± {round(imag, 8)}i"
 
     return {
         "tipo": "bairstow",
         "resultados": resultados,
         "raiz": raiz_str,
-        "convergencia": f"Factor cuadrático hallado: x² - ({round(current_r, 4)})x - ({round(current_s, 4)})",
+        "convergencia": f"Factor hallado: {var}² - ({round(current_r, 4)}){var} - ({round(current_s, 4)})",
         "grafica": None
     }
 

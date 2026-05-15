@@ -1,20 +1,15 @@
 {% extends 'base.html' %}
 
 {% block contenido %}
+  <script src="https://www.desmos.com/api/v1.8/calculator.js?apiKey=dcb31709b452b1cf9dc26972add0fda6"></script>
+
   <div class="container bg-white p-4 rounded shadow-sm calculadora-numerica-widget mt-3">
-    <h2 class="mb-4" style="color: #6f42c1;"><i class="bi bi-arrow-repeat"></i> Método de Punto Fijo</h2>
+    <h2 class="mb-4" style="color: #6f42c1;"><i class="bi bi-arrow-repeat"></i> Método de Punto Fijo (Automático)</h2>
     <p class="text-muted">
-      A diferencia de los otros métodos, aquí no ingresas f(x). Debes despejar una <strong class="text-dark">x</strong> de tu ecuación original para obtener una nueva función <strong class="text-dark">g(x)</strong>. La raíz se encuentra donde la curva g(x) cruza la línea y = x.
+      Ingresa tu ecuación original <strong class="text-dark">f(x)</strong>. Nuestro motor extraerá automáticamente las posibles <strong class="text-dark">g(x)</strong> y elegirá el despeje óptimo.
     </p>
 
-    <form method="POST" class="row g-3 mb-4 align-items-end">
-      
-      <!--
-      <div class="col-md-5">
-        <input type="text" name="gx" class="form-control border-secondary shadow-sm" required placeholder="exp(-x)" title="Escribe tu g(x)" />
-      </div>
-      -->
-      
+    <form method="POST" id="formNumerico" class="row g-3 mb-4 align-items-end">
       <div class="col-md-2">
         <label class="fw-bold text-orange">Valor Inicial (x0)</label>
         <input type="number" step="any" name="x0" class="form-control" required placeholder="0" />
@@ -27,17 +22,66 @@
         <label>Max Iteraciones</label>
         <input type="number" name="max_iter" class="form-control" required placeholder="50" />
       </div>
-      <label class="fw-bold" style="color: #6f42c1;">Función g(x) ya despejada</label>
-      {% include '_math_input.html' %}
+      
       <div class="col-12 mt-4">
-        <button type="submit" class="btn text-white shadow-sm" style="background-color: #6f42c1;"><i class="bi bi-calculator"></i> Calcular Raíz</button>
+          <label class="fw-bold" style="color: #6f42c1;">Función f(x) original</label>
+      </div>
+      
+      {% include '_math_input.html' %}
+      
+      <div class="col-12 mt-4">
+        <button type="submit" class="btn text-white shadow-sm" style="background-color: #6f42c1;">
+            <i class="bi bi-calculator"></i> Encontrar Raíz Automáticamente
+        </button>
       </div>
     </form>
-
     <hr />
+  </div>
+
+  <div class="container mt-3">
+    <div class="card shadow-sm mb-4">
+      <div class="card-header bg-dark text-white">
+        <i class="bi bi-graph-up"></i> Gráfica Interactiva en Tiempo Real
+      </div>
+      <div class="card-body p-0">
+        <div id="calculadora_desmos" style="width: 100%; height: 400px; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px;"></div>
+      </div>
+    </div>
   </div>
 
   <div class="container mt-3">
     {% include '_resultados.html' %}
   </div>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+        // 'formula' es el ID que tiene el input dentro de tu archivo _math_input.html
+        const mathField = document.getElementById('formula'); 
+        
+        // 1. Inicializar la calculadora de Desmos
+        const elt = document.getElementById('calculadora_desmos');
+        const calculator = Desmos.GraphingCalculator(elt, {
+            expressions: false, 
+            keypad: false 
+        });
+
+        // Función para actualizar la gráfica cada vez que el usuario escribe
+        function actualizarGrafica() {
+            const expresionLatex = mathField.value; 
+            
+            // Dibujamos f(x) para que el usuario vea las raíces
+            calculator.setExpression({ 
+                id: 'grafica_principal', 
+                latex: 'f(x)=' + expresionLatex, 
+                color: '#6f42c1' // Color morado para que combine con Punto Fijo
+            });
+        }
+
+        // 2. Escuchar cambios en la pizarra virtual
+        mathField.addEventListener('input', actualizarGrafica);
+        
+        // Carga inicial al entrar a la página
+        setTimeout(actualizarGrafica, 300);
+    });
+  </script>
 {% endblock %}

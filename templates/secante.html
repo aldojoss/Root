@@ -1,30 +1,22 @@
 {% extends 'base.html' %}
 
 {% block contenido %}
+  <script src="https://www.desmos.com/api/v1.8/calculator.js?apiKey=dcb31709b452b1cf9dc26972add0fda6"></script>
+
   <div class="container bg-white p-4 rounded shadow-sm">
-    <h2 class="mb-4 text-info"><i class="bi bi-cursor"></i> Método de la Secante</h2>
-    <p class="text-muted">
-      Una alternativa a Newton-Raphson. Requiere dos valores iniciales (<strong class="text-dark">x0</strong> y <strong class="text-dark">x1</strong>) para aproximar la derivada mediante una línea secante, sin necesidad de calcularla analíticamente.
-    </p>
+    <h2 class="mb-4 text-info"><i class="bi bi-slash-lg"></i> Método de la Secante</h2>
+    <p class="text-muted">Una alternativa a Newton-Raphson que no requiere derivar. Usa dos puntos iniciales para trazar una recta secante que corta el eje X.</p>
 
-    <form method="POST" class="row g-3 mb-4 align-items-end">
-
-      <!--
-      <div class="col-md-4">
-        <label class="fw-bold">Función f(x)</label>
-        <input type="text" name="funcion" class="form-control" required placeholder="x^3 - x - 1" />
-      </div>
-      -->
-      
+    <form method="POST" id="formNumerico" class="row g-3 mb-4 align-items-end">
       <div class="col-md-2">
-        <label class="fw-bold text-orange">Valor (x0)</label>
-        <input type="number" step="any" name="x0" class="form-control border-warning shadow-sm" required placeholder="0" />
+        <label class="fw-bold text-orange">Valor Inicial (x0)</label>
+        <input type="number" step="any" name="x0" class="form-control" required placeholder="0" />
       </div>
       <div class="col-md-2">
-        <label class="fw-bold text-purple">Valor (x1)</label>
-        <input type="number" step="any" name="x1" class="form-control border-primary shadow-sm" required placeholder="1" />
+        <label class="fw-bold text-purple">Valor Inicial (x1)</label>
+        <input type="number" step="any" name="x1" class="form-control" required placeholder="1" />
       </div>
-      <div class="col-md-2">
+      <div class="col-md-3">
         <label>Tolerancia (%)</label>
         <input type="number" step="any" name="tol" class="form-control" required placeholder="0.01" />
       </div>
@@ -32,14 +24,54 @@
         <label>Max Iteraciones</label>
         <input type="number" name="max_iter" class="form-control" required placeholder="50" />
       </div>
-      {% include '_math_input.html' %}
+      
       <div class="col-12 mt-4">
-        <button type="submit" class="btn btn-info text-white"><i class="bi bi-calculator"></i> Calcular Raíz</button>
+          <label class="fw-bold text-info">Función f(x)</label>
+      </div>
+      
+      {% include '_math_input.html' %}
+      
+      <div class="col-12 mt-4">
+        <button type="submit" class="btn btn-info text-white shadow-sm">
+            <i class="bi bi-calculator"></i> Calcular Raíz (Secante)
+        </button>
       </div>
     </form>
-
     <hr />
+
+    <div class="card shadow-sm mb-4">
+      <div class="card-header bg-dark text-white">
+        <i class="bi bi-graph-up"></i> Gráfica Interactiva en Tiempo Real
+      </div>
+      <div class="card-body p-0">
+        <div id="calculadora_desmos" style="width: 100%; height: 400px; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px;"></div>
+      </div>
+    </div>
 
     {% include '_resultados.html' %}
   </div>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const mathField = document.getElementById('formula'); 
+        const elt = document.getElementById('calculadora_desmos');
+        
+        const calculator = Desmos.GraphingCalculator(elt, {
+            expressions: false, 
+            keypad: false 
+        });
+
+        function actualizarGrafica() {
+            const expresionLatex = mathField.value; 
+            calculator.setExpression({ 
+                id: 'grafica_principal', 
+                latex: 'f(x)=' + expresionLatex, 
+                color: '#0dcaf0' // Un color cyan que combina con la tarjeta
+            });
+        }
+
+        mathField.addEventListener('input', actualizarGrafica);
+        setTimeout(actualizarGrafica, 300);
+    });
+  </script>
 {% endblock %}

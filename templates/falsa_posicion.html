@@ -1,39 +1,66 @@
 {% extends 'base.html' %}
 
 {% block contenido %}
+  <script src="https://www.desmos.com/api/v1.8/calculator.js?apiKey=dcb31709b452b1cf9dc26972add0fda6"></script>
+
   <div class="container bg-white p-4 rounded shadow-sm">
     <h2 class="mb-4 text-success"><i class="bi bi-geo-alt"></i> Método de Regla Falsa</h2>
-    <p class="text-muted">A diferencia de la bisección, este método une f(xl) y f(xu) con una línea recta para encontrar una intersección más rápida con el eje X.</p>
+    <p class="text-muted">Este método une f(xl) y f(xu) con una línea recta para encontrar la intersección con el eje X.</p>
 
-    <form method="POST" class="row g-3 mb-4">
-      <!--<div class="col-md-4">
-        <label>Función (Ej: x**3 - x - 1)</label>
-        <input type="text" name="funcion" class="form-control" required placeholder="x^3 - x - 1" />
-      </div>-->
-      <div class="col-md-2">
+    <form method="POST" id="formNumerico" class="row g-3 mb-4">
+      <div class="col-md-3">
         <label>Límite Inferior (xl)</label>
         <input type="number" step="any" name="xl" class="form-control" required placeholder="1" />
       </div>
-      <div class="col-md-2">
+      <div class="col-md-3">
         <label>Límite Superior (xu)</label>
         <input type="number" step="any" name="xu" class="form-control" required placeholder="2" />
       </div>
-      <div class="col-md-2">
+      <div class="col-md-3">
         <label>Tolerancia (%)</label>
         <input type="number" step="any" name="tol" class="form-control" required placeholder="0.01" />
       </div>
-      <div class="col-md-2">
+      <div class="col-md-3">
         <label>Max Iteraciones</label>
         <input type="number" name="max_iter" class="form-control" required placeholder="50" />
       </div>
+      
+      <div class="col-12 mt-3">
+          <label class="fw-bold text-success">Función f(x)</label>
+      </div>
       {% include '_math_input.html' %}
-      <div class="col-12">
+      
+      <div class="col-12 mt-2">
         <button type="submit" class="btn btn-success"><i class="bi bi-calculator"></i> Calcular Raíz</button>
       </div>
     </form>
 
-    <hr />
+    <hr>
+    
+    <div class="card shadow-sm mb-4">
+      <div class="card-header bg-dark text-white">
+        <i class="bi bi-graph-up"></i> Gráfica Interactiva
+      </div>
+      <div class="card-body p-0">
+        <div id="calculadora_desmos" style="width: 100%; height: 400px; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px;"></div>
+      </div>
+    </div>
 
     {% include '_resultados.html' %}
   </div>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const mathField = document.getElementById('formula'); 
+        const elt = document.getElementById('calculadora_desmos');
+        const calculator = Desmos.GraphingCalculator(elt, { expressions: false, keypad: false });
+
+        function actualizarGrafica() {
+            calculator.setExpression({ id: 'grafica_principal', latex: 'f(x)=' + mathField.value, color: Desmos.Colors.GREEN });
+        }
+
+        mathField.addEventListener('input', actualizarGrafica);
+        setTimeout(actualizarGrafica, 300);
+    });
+  </script>
 {% endblock %}

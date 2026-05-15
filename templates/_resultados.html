@@ -21,34 +21,54 @@
       </div>
     {% endif %}
   {% else %}
-    <div class="row mb-4">
+   <div class="row mb-4">
       <div class="col-md-6">
-        <div class="alert alert-success h-100 d-flex flex-column justify-content-center">
-          <h4 class="alert-heading">¡Raíz Encontrada!</h4>
-          <p class="fs-4 mb-0 fw-bold">{{ datos.raiz }}</p>
+        <div class="alert alert-success h-100 d-flex flex-column justify-content-center shadow-sm">
+          <h4 class="alert-heading">¡Resultado Encontrado!</h4>
+          <p class="fs-4 mb-0 fw-bold text-success">
+            {% if datos.tipo == 'taylor' %}
+                {{ datos.aprox_final }}
+            {% else %}
+                {{ datos.raiz }}
+            {% endif %}
+          </p>
         </div>
       </div>
       <div class="col-md-6">
-        <div class="alert alert-info h-100 d-flex flex-column justify-content-center">
-          <strong>Nivel de Convergencia:</strong>
-          <p class="mb-0">{{ datos.convergencia }}</p>
+        <div class="alert alert-info h-100 d-flex flex-column justify-content-center shadow-sm">
+          {% if datos.tipo == 'taylor' %}
+            <strong>Valor Real Original:</strong>
+            <p class="mb-0 fs-5 fw-bold">{{ datos.valor_verdadero }}</p>
+          {% else %}
+            <strong>Nivel de Convergencia:</strong>
+            <p class="mb-0">{{ datos.convergencia }}</p>
+          {% endif %}
         </div>
       </div>
     </div>
 
+    {% if datos.tipo == 'taylor' and datos.polinomio_final %}
+      <div class="alert alert-warning shadow-sm mb-4 border-warning">
+        <h5 class="text-dark"><i class="bi bi-braces"></i> Polinomio de Taylor Generado P(x)</h5>
+        <hr class="border-warning opacity-50">
+        <div class="text-danger p-2 rounded bg-white border" style="font-family: 'Courier New', Courier, monospace; font-size: 1.2em; word-wrap: break-word;">
+          {{ datos.polinomio_final }}
+        </div>
+      </div>
+    {% endif %}
     {% if datos.grafica %}
       <div class="card shadow-sm mb-4">
         <div class="card-header bg-dark text-white">
-          <i class="bi bi-graph-up"></i> Gráfica de f(x)
+          <i class="bi bi-graph-up"></i> Análisis Visual
         </div>
-        <div class="card-body text-center overflow-auto">
-          <img src="data:image/png;base64,{{ datos.grafica }}" class="img-fluid" alt="Gráfica de la función" />
+        <div class="card-body text-center overflow-auto bg-light">
+          <img src="data:image/png;base64,{{ datos.grafica }}" class="img-fluid rounded" alt="Gráfica de la función" />
         </div>
       </div>
     {% endif %}
 
     <div class="table-responsive shadow-sm rounded">
-      <table class="table table-bordered table-hover text-center mb-0">
+      <table class="table table-bordered table-hover text-center mb-0 bg-white align-middle">
         <thead class="table-dark">
           <tr>
             {% if datos.tipo == 'taylor' %}
@@ -112,16 +132,16 @@
           {% for fila in datos.resultados %}
             <tr>
               {% if datos.tipo == 'taylor' %}
-                <td>{{ fila.orden }}</td>
-                <td>
-                  <small><code>{{ fila.derivada }}</code></small>
+                <td class="fw-bold text-secondary">{{ fila.orden }}</td>
+                <td class="text-danger" style="font-family: 'Courier New', Courier, monospace; font-size: 1.1em;">
+                  {{ fila.derivada }}
                 </td>
-                <td>{{ fila.df_x0 }}</td>
-                <td>{{ fila.termino }}</td>
-                <td class="fw-bold text-warning">{{ fila.aproximacion }}</td>
-                <td>{{ fila.et }}</td>
+                <td>{{ fila.derivada_evaluada }}</td>
+                <td>{{ fila.termino_calculado }}</td>
+                <td class="fw-bold text-warning fs-5">{{ fila.aproximacion }}</td>
+                <td class="text-muted">{{ fila.et }}</td>
               {% else %}
-                <td>{{ fila.iteracion }}</td>
+                <td class="fw-bold">{{ fila.iteracion }}</td>
 
                 {% if datos.tipo == 'abierto' %}
                   <td>{{ fila.xi }}</td>
@@ -134,15 +154,12 @@
                   <td>{{ fila.dpxi }}</td>
                   <td class="fw-bold text-success">{{ fila.x_siguiente }}</td>
                 {% elif datos.tipo == 'secante' %}
-                  <td>{{ fila.xi_menos_1 }}</td>
-                  <td>{{ fila.xi }}</td>
-                  <td>{{ fila.fxi_menos_1 }}</td>
-                  <td>{{ fila.fxi }}</td>
+                  <td>{{ fila.x_previo }}</td> <td>{{ fila.x_actual }}</td> <td>{{ fila.fx_previo }}</td>
+                  <td>{{ fila.fx_actual }}</td>
                   <td class="fw-bold text-info">{{ fila.x_siguiente }}</td>
                 {% elif datos.tipo == 'punto_fijo' %}
                   <td>{{ fila.xi }}</td>
-                  <td class="fw-bold text-primary">{{ fila.gxi }}</td>
-                {% elif datos.tipo == 'horner' %}
+                  <td class="fw-bold text-primary">{{ fila.x_siguiente }}</td> {% elif datos.tipo == 'horner' %}
                   <td>
                     <small class="text-muted">x^{{ fila.grado }}</small>
                   </td>
@@ -168,7 +185,7 @@
                   <td>{{ fila.fxr }}</td>
                 {% endif %}
 
-                <td>{{ fila.ea }}</td>
+                <td class="text-danger">{{ fila.ea }}</td>
               {% endif %}
             </tr>
           {% endfor %}

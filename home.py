@@ -39,6 +39,7 @@ _DIV_ZERO_THRESH = 1e-12    # Denominador mínimo tolerable
 _DIVERGE_THRESH  = 1e15     # FIX: era 1e10, demasiado estricto para algunas funciones
 _ROUND_DIGITS    = 8
 _COMPLEX_THRESH  = 1e-4     # FIX: era 1e-6, ahora más tolerante con errores de float
+_MAX_ITER        = 1000     # Límite operativo para evitar respuestas enormes o cuelgues
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PALETA DE COLORES
@@ -134,6 +135,12 @@ def parsear_funcion(latex_str):
         if e_sym in expr.free_symbols:
             expr = expr.subs(e_sym, sp.E)
 
+        expr = expr.replace(
+            lambda node: getattr(node, "func", None) == sp.log
+            and len(node.args) == 2 and node.args[1] == sp.E,
+            lambda node: sp.log(node.args[0])
+        )
+
         vars_u = [s for s in expr.free_symbols
                   if str(s) not in ("e", "pi", "E")]
 
@@ -164,6 +171,111 @@ def parsear_funcion(latex_str):
         }
 
 
+def _error_parametro(mensaje, consejo=None):
+    """Error homogéneo para entradas numéricas inválidas."""
+    return {
+        "error": True,
+        "titulo": "⚠️ Entrada inválida",
+        "mensaje": mensaje,
+        "consejo": consejo or "Revisa los valores numéricos e intenta nuevamente.",
+    }
+
+
+def _validar_reales(**valores):
+    """Valida que cada parámetro sea convertible a float finito."""
+    for nombre, valor in valores.items():
+        try:
+            numero = float(valor)
+        except (TypeError, ValueError, OverflowError):
+            return _error_parametro(f"{nombre} debe ser un número real.")
+        if not math.isfinite(numero):
+            return _error_parametro(f"{nombre} debe ser finito; no se acepta NaN ni infinito.")
+        if abs(numero) > _DIVERGE_THRESH:
+            return _error_parametro(
+                f"{nombre} supera el rango seguro ({_DIVERGE_THRESH:.0e}).",
+                "Usa un valor inicial o intervalo de escala razonable para el método.",
+            )
+    return None
+
+
+def _validar_tol_iter(tol, max_iter):
+    """Valida tolerancia positiva y cantidad de iteraciones razonable."""
+    err = _validar_reales(tol=tol)
+    if err:
+        return err
+
+    if float(tol) <= 0:
+        return _error_parametro(
+            "La tolerancia debe ser mayor que 0.",
+            "Usa un valor como 0.01 para representar porcentaje de error.",
+        )
+
+    try:
+        max_iter_f = float(max_iter)
+    except (TypeError, ValueError, OverflowError):
+        return _error_parametro("Máx. iteraciones debe ser un número entero.")
+
+    if not math.isfinite(max_iter_f) or not max_iter_f.is_integer():
+        return _error_parametro("Máx. iteraciones debe ser un entero finito.")
+
+    max_iter_i = int(max_iter_f)
+    if max_iter_i < 1:
+        return _error_parametro("Máx. iteraciones debe ser al menos 1.")
+    if max_iter_i > _MAX_ITER:
+        return _error_parametro(
+            f"Máx. iteraciones no puede superar {_MAX_ITER}.",
+            "Usa un límite menor para mantener la respuesta manejable.",
+        )
+    return None
+
+
+def _validar_entero_rango(valor, nombre, minimo, maximo):
+    try:
+        numero = float(valor)
+    except (TypeError, ValueError, OverflowError):
+        return _error_parametro(f"{nombre} debe ser un número entero.")
+
+    if not math.isfinite(numero) or not numero.is_integer():
+        return _error_parametro(f"{nombre} debe ser un entero finito.")
+
+    numero_i = int(numero)
+    if numero_i < minimo or numero_i > maximo:
+        return _error_parametro(
+            f"{nombre} debe estar entre {minimo} y {maximo}.",
+            f"Usa un valor entero del rango {minimo}–{maximo}.",
+        )
+    return None
+
+
+def _error_formulario(exc):
+    return _error_parametro(
+        f"No se pudieron leer todos los campos del formulario: {str(exc)[:120]}",
+        "Completa la función y todos los parámetros numéricos requeridos.",
+    )
+
+
+def _validar_intervalo_continuo(f_sim, var, xl, xu):
+    """Detecta discontinuidades internas antes de aplicar Bolzano."""
+    a, b = sorted((float(xl), float(xu)))
+    try:
+        singulares = sp.calculus.util.singularities(f_sim, var)
+        dentro = singulares.intersect(sp.Interval.open(a, b))
+    except Exception:
+        return None
+
+    if dentro != sp.EmptySet:
+        return {
+            "error": True,
+            "titulo": "⚠️ Discontinuidad en el intervalo",
+            "mensaje": (
+                f"La función no es continua en ({a}, {b}); se detectó "
+                f"singularidad en {str(dentro)[:120]}."
+            ),
+            "consejo": "Divide el intervalo y evita asíntotas antes de aplicar Bolzano.",
+        }
+    return None
+
+
 def _eval_seguro(f_lam, punto, nombre="x"):
     """
     Evalúa f_lam(punto) con protección completa contra:
@@ -173,7 +285,8 @@ def _eval_seguro(f_lam, punto, nombre="x"):
     Retorna (float, None) o (None, dict_error).
     """
     try:
-        raw = f_lam(punto)
+        with np.errstate(all="ignore"):
+            raw = f_lam(punto)
         val = _safe_float(raw)
         if val is None:
             return None, {
@@ -238,7 +351,8 @@ def _trazar_funcion(ax, f_lam, x_min, x_max, color, label, n=700):
     """
     try:
         xs = np.linspace(x_min, x_max, n)
-        raw = f_lam(xs)
+        with np.errstate(all="ignore"):
+            raw = f_lam(xs)
 
         # Escalar si lambdify devolvió escalar (función constante)
         if isinstance(raw, (int, float, complex)):
@@ -280,6 +394,59 @@ def _grafica_b64(fig):
         plt.close(fig)
 
 
+def _resultado_raiz_extremo(f_lam, var, xl, xu, fxl_v, fxu_v, color, convergencia):
+    """Construye una respuesta exitosa cuando un método cerrado recibe la raíz en un extremo."""
+    raiz = float(xl) if abs(fxl_v) < _DIV_ZERO_THRESH else float(xu)
+    fxr = fxl_v if abs(fxl_v) < _DIV_ZERO_THRESH else fxu_v
+    x_min, x_max = min(float(xl), float(xu)), max(float(xl), float(xu))
+    margen = max((x_max - x_min) * 0.4, 1.5)
+
+    fig, ax = _hacer_figura()
+    _trazar_funcion(ax, f_lam, x_min - margen, x_max + margen, color, f"f({var})")
+    ax.axvline(float(xl), color=_COLOR["limite"], ls="--", lw=1.2, alpha=0.8,
+               label=f"xl = {xl}")
+    ax.axvline(float(xu), color=_COLOR["limite"], ls="--", lw=1.2, alpha=0.8,
+               label=f"xu = {xu}")
+    ax.plot(raiz, 0, "o", color=_COLOR["raiz"], ms=10, zorder=5,
+            label=f"Raíz exacta = {round(raiz, _ROUND_DIGITS)}")
+    ax.legend(fontsize=8, facecolor=_LEGEND, edgecolor=_AXIS, labelcolor=_TEXT)
+    fig.tight_layout()
+
+    return {
+        "error": False, "tipo": "cerrado",
+        "resultados": [{
+            "iteracion": 0,
+            "xl":  _fmt_num(xl),      "xu":  _fmt_num(xu),
+            "xr":  _fmt_num(raiz),    "fxl": _fmt_num(fxl_v),
+            "fxr": _fmt_num(fxr),     "ea":  0,
+        }],
+        "raiz": _fmt_num(raiz),
+        "convergencia": f"Raíz exacta detectada en un extremo. {convergencia}",
+        "grafica": _grafica_b64(fig),
+    }
+
+
+def _resultado_raiz_inicial(f_lam, var, x0, color, tipo, fila, convergencia):
+    """Construye una respuesta exitosa cuando una semilla ya es raíz exacta."""
+    x0 = float(x0)
+    fig, ax = _hacer_figura()
+    _trazar_funcion(ax, f_lam, x0 - 2.0, x0 + 2.0, color, f"f({var})")
+    ax.axvline(x0, color=_COLOR["limite"], ls=":", lw=1.2, alpha=0.7,
+               label=f"x₀ = {x0}")
+    ax.plot(x0, 0, "o", color=_COLOR["raiz"], ms=10, zorder=5,
+            label=f"Raíz exacta = {round(x0, _ROUND_DIGITS)}")
+    ax.legend(fontsize=8, facecolor=_LEGEND, edgecolor=_AXIS, labelcolor=_TEXT)
+    fig.tight_layout()
+
+    return {
+        "error": False, "tipo": tipo,
+        "resultados": [fila],
+        "raiz": _fmt_num(x0),
+        "convergencia": f"Raíz exacta detectada en la semilla inicial. {convergencia}",
+        "grafica": _grafica_b64(fig),
+    }
+
+
 def _extraer_coeficientes(f_sim, x):
     """Extrae coeficientes usando el motor Poly de SymPy (100% robusto)."""
     try:
@@ -297,16 +464,33 @@ def metodo_biseccion(latex_str, xl, xu, tol, max_iter):
     Bisección clásica. Requiere Bolzano: f(xl)·f(xu) < 0.
     Convergencia lineal — error se reduce a la mitad por iteración.
     """
+    err = _validar_reales(xl=xl, xu=xu)
+    if err:
+        return err
+    err = _validar_tol_iter(tol, max_iter)
+    if err:
+        return err
+    xl, xu, tol, max_iter = float(xl), float(xu), float(tol), int(float(max_iter))
+
     f_sim, var, err = parsear_funcion(latex_str)
     if err:
         return err
 
     f = sp.lambdify(var, f_sim, "numpy")
+    err = _validar_intervalo_continuo(f_sim, var, xl, xu)
+    if err:
+        return err
 
     fxl_v, e = _eval_seguro(f, xl, "xl")
     if e: return e
     fxu_v, e = _eval_seguro(f, xu, "xu")
     if e: return e
+
+    if abs(fxl_v) < _DIV_ZERO_THRESH or abs(fxu_v) < _DIV_ZERO_THRESH:
+        return _resultado_raiz_extremo(
+            f, var, xl, xu, fxl_v, fxu_v, _COLOR["biseccion"],
+            "Bisección no requiere iterar cuando f(x)=0 en el límite.",
+        )
 
     if fxl_v * fxu_v > 0:
         return {
@@ -315,14 +499,6 @@ def metodo_biseccion(latex_str, xl, xu, tol, max_iter):
             "mensaje": (f"f({xl}) = {round(fxl_v,6)},  f({xu}) = {round(fxu_v,6)}. "
                         "Mismo signo → no garantiza raíz (Bolzano)."),
             "consejo": "Ajusta xl y xu para que f(xl)·f(xu) < 0.",
-        }
-    if fxl_v * fxu_v == 0:
-        raiz_exacta = xl if fxl_v == 0 else xu
-        return {
-            "error": True,
-            "titulo": "🎯 Raíz exacta en el límite",
-            "mensaje": f"f({raiz_exacta}) = 0. La raíz exacta es {raiz_exacta}.",
-            "consejo": "El intervalo ya contiene la raíz en su extremo.",
         }
 
     resultados = []
@@ -389,17 +565,34 @@ def metodo_falsa_posicion(latex_str, xl, xu, tol, max_iter):
     Regla Falsa: intersección de la recta f(xl)→f(xu) con el eje X.
     Más rápida que bisección en funciones convexas; sigue requiriendo Bolzano.
     """
+    err = _validar_reales(xl=xl, xu=xu)
+    if err:
+        return err
+    err = _validar_tol_iter(tol, max_iter)
+    if err:
+        return err
+    xl, xu, tol, max_iter = float(xl), float(xu), float(tol), int(float(max_iter))
+
     f_sim, var, err = parsear_funcion(latex_str)
     if err:
         return err
 
     f = sp.lambdify(var, f_sim, "numpy")
+    err = _validar_intervalo_continuo(f_sim, var, xl, xu)
+    if err:
+        return err
 
     fxl_v, e = _eval_seguro(f, xl, "xl")
     if e: return e
     fxu_v, e = _eval_seguro(f, xu, "xu")
     if e: return e
     xl0, xu0  = xl, xu
+
+    if abs(fxl_v) < _DIV_ZERO_THRESH or abs(fxu_v) < _DIV_ZERO_THRESH:
+        return _resultado_raiz_extremo(
+            f, var, xl, xu, fxl_v, fxu_v, _COLOR["falsa"],
+            "Regla Falsa no requiere interpolar cuando f(x)=0 en el límite.",
+        )
 
     if fxl_v * fxu_v >= 0:
         return {
@@ -479,6 +672,14 @@ def metodo_newton_raphson(latex_str, x0, tol, max_iter):
     xi+1 = xi − f(xi)/f'(xi).  Derivada analítica via SymPy.
     Convergencia cuadrática — fallla si f'(xi)=0.
     """
+    err = _validar_reales(x0=x0)
+    if err:
+        return err
+    err = _validar_tol_iter(tol, max_iter)
+    if err:
+        return err
+    x0, tol, max_iter = float(x0), float(tol), int(float(max_iter))
+
     f_sim, var, err = parsear_funcion(latex_str)
     if err:
         return err
@@ -494,6 +695,20 @@ def metodo_newton_raphson(latex_str, x0, tol, max_iter):
 
     fxi_v, e = _eval_seguro(f,  x0, "x0"); 
     if e: return e
+    if abs(fxi_v) < _DIV_ZERO_THRESH:
+        return _resultado_raiz_inicial(
+            f, var, x0, _COLOR["newton"], "abierto",
+            {
+                "iteracion": 0,
+                "xi": _fmt_num(x0),
+                "fxi": _fmt_num(fxi_v),
+                "dfxi": "---",
+                "x_siguiente": _fmt_num(x0),
+                "ea": 0,
+            },
+            "Newton-Raphson no requiere calcular la tangente.",
+        )
+
     dfxi_v, e = _eval_seguro(df, x0, "x0")
     if e: return e
 
@@ -573,11 +788,41 @@ def metodo_secante(latex_str, x0, x1, tol, max_iter):
       - Gráfica usa el rango real de convergencia, no el rango divergente
       - ea se guarda y compara como float, no como posible complejo
     """
+    err = _validar_reales(x0=x0, x1=x1)
+    if err:
+        return err
+    err = _validar_tol_iter(tol, max_iter)
+    if err:
+        return err
+    x0, x1, tol, max_iter = float(x0), float(x1), float(tol), int(float(max_iter))
+
     f_sim, var, err = parsear_funcion(latex_str)
     if err:
         return err
 
     f = sp.lambdify(var, f_sim, "numpy")
+
+    fx0_v, e = _eval_seguro(f, x0, "x0");
+    if e: return e
+    fx1_v, e = _eval_seguro(f, x1, "x1")
+    if e: return e
+
+    if abs(fx0_v) < _DIV_ZERO_THRESH or abs(fx1_v) < _DIV_ZERO_THRESH:
+        raiz = x0 if abs(fx0_v) < _DIV_ZERO_THRESH else x1
+        fx_raiz = fx0_v if abs(fx0_v) < _DIV_ZERO_THRESH else fx1_v
+        return _resultado_raiz_inicial(
+            f, var, raiz, _COLOR["secante"], "secante",
+            {
+                "iteracion": 0,
+                "x_previo": _fmt_num(x0),
+                "x_actual": _fmt_num(x1),
+                "fx_previo": _fmt_num(fx0_v),
+                "fx_actual": _fmt_num(fx1_v),
+                "x_siguiente": _fmt_num(raiz),
+                "ea": 0,
+            },
+            f"f({raiz}) = {_fmt_num(fx_raiz)}; Secante no requiere iterar.",
+        )
 
     if abs(x1 - x0) < _DIV_ZERO_THRESH:
         return {
@@ -586,11 +831,6 @@ def metodo_secante(latex_str, x0, x1, tol, max_iter):
             "mensaje": "x0 y x1 son prácticamente iguales.",
             "consejo": "Usa dos valores iniciales distintos.",
         }
-
-    fx0_v, e = _eval_seguro(f, x0, "x0");  
-    if e: return e
-    fx1_v, e = _eval_seguro(f, x1, "x1")
-    if e: return e
 
     resultados     = []
     x_prev, fx_prev = float(x0), fx0_v
@@ -675,69 +915,87 @@ def metodo_taylor(latex_str, x0, x_eval, n_terminos):
     P(x) = Σ_{n=0}^{N-1} f^(n)(x0)/n! · (x−x0)^n
     Compara con el valor real f(x_eval) y grafica ambas curvas.
     """
+    err = _validar_reales(x0=x0, x_eval=x_eval)
+    if err:
+        return err
+    err = _validar_entero_rango(n_terminos, "Número de términos", 1, 20)
+    if err:
+        return err
+    x0, x_eval, n_terminos = float(x0), float(x_eval), int(float(n_terminos))
+
     f_sim, var, err = parsear_funcion(latex_str)
     if err:
         return err
-
-    if not (1 <= n_terminos <= 20):
-        return {
-            "error": True,
-            "titulo": "⚠️ Términos fuera de rango",
-            "mensaje": f"Se pidieron {n_terminos} términos. Rango válido: 1–20.",
-            "consejo": "Usa entre 1 y 20 términos.",
-        }
 
     f_num = sp.lambdify(var, f_sim, "numpy")
 
     val_real, e = _eval_seguro(f_num, x_eval, "x_eval")
     if e: return e
 
-    resultados       = []
-    aprox_acum       = 0.0
+    h = sp.Symbol("_h")
+    x0_sym = sp.nsimplify(x0)
+    desplazada = f_sim.subs(var, x0_sym + h)
+    orden_limite = max(30, min(100, 5 * n_terminos + 5))
+    try:
+        serie_h = sp.series(desplazada, h, 0, orden_limite + 1).removeO().expand()
+    except Exception as exc:
+        return {
+            "error": True,
+            "titulo": "🛑 Taylor no pudo expandirse",
+            "mensaje": str(exc)[:200],
+            "consejo": "Prueba menos términos o un centro x0 dentro del dominio.",
+        }
+
+    terminos = []
+    for potencia in range(orden_limite + 1):
+        coef = sp.simplify(serie_h.coeff(h, potencia))
+        coef_real = _safe_float(coef.evalf())
+        if coef_real is None:
+            return {
+                "error": True,
+                "titulo": "🛑 Coeficiente complejo",
+                "mensaje": f"El coeficiente de orden {potencia} no es real en x0 = {x0}.",
+                "consejo": "Elige un centro x0 donde la serie sea real.",
+            }
+        if abs(coef_real) > _DIV_ZERO_THRESH:
+            terminos.append((potencia, coef, coef_real))
+            if len(terminos) >= n_terminos:
+                break
+
+    if len(terminos) < n_terminos:
+        return {
+            "error": True,
+            "titulo": "⚠️ Serie insuficiente",
+            "mensaje": (
+                f"Solo se encontraron {len(terminos)} términos no nulos "
+                f"hasta el orden {orden_limite}."
+            ),
+            "consejo": "Usa menos términos o una función con expansión menos dispersa.",
+        }
+
+    resultados = []
+    aprox_acum = 0.0
     polinomio_taylor = sp.Integer(0)
 
-    for n in range(n_terminos):
-        try:
-            derivada_n = sp.diff(f_sim, var, n)
-        except Exception as exc:
-            return {"error": True, "titulo": f"🛑 Derivada orden {n} fallida",
-                    "mensaje": str(exc)[:200]}
+    for idx, (n, coef_simb, coef_real) in enumerate(terminos, start=1):
+        val_deriv = coef_real * math.factorial(n)
+        termino_val = coef_real * ((x_eval - x0) ** n)
+        termino_simb = coef_simb * ((var - x0_sym) ** n)
 
-        try:
-            val_deriv = float(derivada_n.subs(var, x0).evalf())
-        except Exception:
-            return {
-                "error": True,
-                "titulo": f"⚠️ Discontinuidad en x0 (orden {n})",
-                "mensaje": f"f^({n})(x0={x0}) no es evaluable.",
-                "consejo": "Elige un x0 donde f y todas sus derivadas necesarias estén definidas.",
-            }
-
-        if not math.isfinite(val_deriv):
-            return {
-                "error": True,
-                "titulo": f"🛑 Derivada infinita (orden {n})",
-                "mensaje": f"f^({n})(x0={x0}) = {val_deriv}.",
-                "consejo": "El centro x0 está fuera del dominio.",
-            }
-
-        fac_n        = math.factorial(n)
-        termino_val  = (val_deriv / fac_n) * ((x_eval - x0) ** n)
-        termino_simb = (derivada_n.subs(var, x0) / fac_n) * ((var - x0) ** n)
-
-        aprox_acum       += termino_val
+        aprox_acum += termino_val
         polinomio_taylor += termino_simb
 
         et = (abs((val_real - aprox_acum) / val_real) * 100
               if abs(val_real) > _DIV_ZERO_THRESH else abs(aprox_acum))
 
+        termino_str = str(sp.expand(termino_simb)).replace("**","^").replace("*","·")
         resultados.append({
             "orden":             n,
-            "derivada":          str(derivada_n).replace("**","^").replace("*","·"),
+            "derivada":          termino_str,
             "derivada_evaluada": round(val_deriv, _ROUND_DIGITS),
             "termino_calculado": round(termino_val, _ROUND_DIGITS),
             "aproximacion":      round(aprox_acum, _ROUND_DIGITS),
-            "et":                round(et, _ROUND_DIGITS) if n > 0 else "---",
+            "et":                round(et, _ROUND_DIGITS) if idx > 1 else "---",
         })
 
     p_num   = sp.lambdify(var, polinomio_taylor, "numpy")
@@ -749,7 +1007,7 @@ def metodo_taylor(latex_str, x0, x_eval, n_terminos):
     _trazar_funcion(ax, f_num, min(x0,x_eval)-margen, max(x0,x_eval)+margen,
                     _COLOR["taylor_f"], f"f({var}) original")
     _trazar_funcion(ax, p_num, min(x0,x_eval)-margen, max(x0,x_eval)+margen,
-                    _COLOR["taylor_p"], f"Taylor orden {n_terminos-1}")
+                    _COLOR["taylor_p"], f"Taylor {n_terminos} términos")
     ax.axvline(x0, color=_COLOR["limite"], ls=":", lw=1.2, alpha=0.7,
                label=f"Centro x₀={x0}")
     ax.plot(x_eval, val_real,   "o", color=_COLOR["taylor_f"], ms=8, zorder=5,
@@ -776,6 +1034,14 @@ def metodo_punto_fijo(latex_fx_str, x0, tol, max_iter):
     """
     Genera candidatos g(x) de f(x)=0 y selecciona el que cumple |g'(x0)|<1.
     """
+    err = _validar_reales(x0=x0)
+    if err:
+        return err
+    err = _validar_tol_iter(tol, max_iter)
+    if err:
+        return err
+    x0, tol, max_iter = float(x0), float(tol), int(float(max_iter))
+
     f_sim, var, err = parsear_funcion(latex_fx_str)
     if err:
         return err
@@ -793,45 +1059,116 @@ def metodo_punto_fijo(latex_fx_str, x0, tol, max_iter):
             except Exception:
                 pass
 
-    g_elegida    = None
-    menor_deriv  = float("inf")
-
+    candidatos_unicos = []
+    vistos = set()
     for g_expr in candidatos:
         try:
-            dg    = sp.diff(g_expr, x)
-            dg_f  = sp.lambdify(x, dg, "numpy")
-            val   = abs(float(complex(dg_f(x0)).real))
-            if not math.isfinite(val):
+            g_s = sp.simplify(g_expr)
+        except Exception:
+            g_s = g_expr
+        clave = str(g_s)
+        if clave not in vistos:
+            vistos.add(clave)
+            candidatos_unicos.append(g_s)
+
+    f_num = sp.lambdify(x, f_sim, "numpy")
+    residual_inicial, e = _eval_seguro(f_num, x0, "x0")
+    if e:
+        return e
+
+    g_elegida = None
+    menor_score = (float("inf"), float("inf"))
+    deriv_elegida = float("inf")
+    complejo_detectado = False
+
+    def _salto_complejo(punto, expr="g(x)"):
+        return {
+            "error": True,
+            "titulo": "🛑 Salto al plano complejo",
+            "mensaje": f"{expr} produjo un valor no real al evaluar desde x = {_fmt_num(punto)}.",
+            "consejo": "Elige otra semilla o usa un método que admita raíces complejas, como Müller.",
+        }
+
+    for g_expr in candidatos_unicos:
+        try:
+            g_num_tmp = sp.lambdify(x, g_expr, "numpy")
+            dg = sp.diff(g_expr, x)
+            dg_f = sp.lambdify(x, dg, "numpy")
+
+            g0 = _safe_float(g_num_tmp(x0))
+            dg0 = _safe_float(dg_f(x0))
+            if g0 is None or dg0 is None:
+                complejo_detectado = True
                 continue
-            if val < 1.0 and val < menor_deriv:
-                menor_deriv = val
-                g_elegida   = g_expr
+            if not math.isfinite(g0) or not math.isfinite(dg0):
+                continue
+
+            xi_prueba = float(x0)
+            residuos = []
+            estable = True
+            for _ in range(min(6, max_iter)):
+                gxi_prueba = _safe_float(g_num_tmp(xi_prueba))
+                if gxi_prueba is None:
+                    complejo_detectado = True
+                    estable = False
+                    break
+                if not math.isfinite(gxi_prueba) or abs(gxi_prueba) > _DIVERGE_THRESH:
+                    estable = False
+                    break
+
+                f_prueba = _safe_float(f_num(gxi_prueba))
+                if f_prueba is None:
+                    complejo_detectado = True
+                    estable = False
+                    break
+                if not math.isfinite(f_prueba):
+                    estable = False
+                    break
+
+                residuos.append(abs(f_prueba))
+                xi_prueba = float(gxi_prueba)
+
+            if not estable or not residuos:
+                continue
+
+            mejora = residuos[-1] < max(abs(residual_inicial), _DIV_ZERO_THRESH)
+            contraccion_suave = abs(dg0) <= 1.05
+            if mejora and contraccion_suave:
+                score = (residuos[-1], abs(dg0))
+                if score < menor_score:
+                    menor_score = score
+                    deriv_elegida = abs(dg0)
+                    g_elegida = g_expr
         except Exception:
             continue
 
     if g_elegida is None:
+        if complejo_detectado:
+            return _salto_complejo(x0)
         return {
             "error": True,
             "titulo": "🛑 Sin despeje convergente",
-            "mensaje": (f"Se probaron {len(candidatos)} despejes. "
-                        f"Ninguno cumple |g'(x0)| < 1 en x0 = {x0}."),
+            "mensaje": (f"Se probaron {len(candidatos_unicos)} despejes. "
+                        f"Ninguno mantuvo iteraciones reales y convergentes desde x0 = {x0}."),
             "consejo": "Prueba un x0 más cercano a la raíz real.",
         }
 
     g_num  = sp.lambdify(x, g_elegida, "numpy")
     g_str  = str(g_elegida).replace("**","^")
-    conv_s = (f"g({x}) = {g_str}  |  |g'(x₀)| = {round(menor_deriv,5)} < 1 "
-              f"→ convergencia garantizada.")
+    conv_s = (f"g({x}) = {g_str}  |  |g'(x₀)| ≈ {round(deriv_elegida,5)} "
+              f"→ despeje estable para esta semilla.")
 
     resultados = []
     xi         = float(x0)
 
     for i in range(1, max_iter + 1):
         try:
-            gxi = float(complex(g_num(xi)).real)
+            gxi = _safe_float(g_num(xi))
         except Exception as exc:
             return {"error": True, "titulo": "🛑 Error en g(xi)",
                     "mensaje": str(exc)[:200]}
+        if gxi is None:
+            return _salto_complejo(xi)
 
         if not math.isfinite(gxi) or abs(gxi) > _DIVERGE_THRESH:
             return {"error": True, "titulo": "🚀 Divergencia",
@@ -884,6 +1221,11 @@ def metodo_horner(latex_str, x0):
     """
     División sintética para evaluar P(x0) en O(n) multiplicaciones.
     """
+    err = _validar_reales(x0=x0)
+    if err:
+        return err
+    x0 = float(x0)
+
     f_sim, var, err = parsear_funcion(latex_str)
     if err:
         return err
@@ -951,6 +1293,14 @@ def metodo_horner_newton(latex_str, x0, tol, max_iter):
     Newton-Raphson donde P(xi) y P'(xi) se calculan con doble síntesis de Horner.
     Evita derivar simbólicamente. Convergencia cuadrática.
     """
+    err = _validar_reales(x0=x0)
+    if err:
+        return err
+    err = _validar_tol_iter(tol, max_iter)
+    if err:
+        return err
+    x0, tol, max_iter = float(x0), float(tol), int(float(max_iter))
+
     f_sim, var, err = parsear_funcion(latex_str)
     if err:
         return err
@@ -974,6 +1324,21 @@ def metodo_horner_newton(latex_str, x0, tol, max_iter):
     for i in range(1, max_iter + 1):
         pxi,  q  = _horner(coefs_orig, xi)  # P(xi)
         dpxi, _  = _horner(q, xi)           # P'(xi)
+
+        if abs(pxi) < _DIV_ZERO_THRESH:
+            f_num = sp.lambdify(var, expandida, "numpy")
+            return _resultado_raiz_inicial(
+                f_num, var, xi, _COLOR["horner_newton"], "horner_newton",
+                {
+                    "iteracion": 0,
+                    "xi": _fmt_num(xi),
+                    "pxi": _fmt_num(pxi),
+                    "dpxi": "---",
+                    "x_siguiente": _fmt_num(xi),
+                    "ea": 0,
+                },
+                "Horner-Newton no requiere dividir entre P'(xi).",
+            )
 
         if abs(dpxi) < _DIV_ZERO_THRESH:
             return {
@@ -1040,17 +1405,28 @@ def metodo_muller(latex_str, x0, x1, x2, tol, max_iter):
 
     FIX: ea se castea a float() explícitamente antes de comparar con tol.
     """
+    err = _validar_reales(x0=x0, x1=x1, x2=x2)
+    if err:
+        return err
+    err = _validar_tol_iter(tol, max_iter)
+    if err:
+        return err
+    x0, x1, x2, tol, max_iter = float(x0), float(x1), float(x2), float(tol), int(float(max_iter))
+
     f_sim, var, err = parsear_funcion(latex_str)
     if err:
         return err
 
-    if len({x0, x1, x2}) < 3:
-        return {
-            "error": True,
-            "titulo": "⚠️ Semillas repetidas",
-            "mensaje": "x0, x1 y x2 deben ser tres valores distintos.",
-            "consejo": "Separa más las semillas.",
-        }
+    try:
+        if sp.Poly(f_sim, var).degree() <= 1:
+            return {
+                "error": True,
+                "titulo": "⚠️ Denominador Müller = 0",
+                "mensaje": "Los puntos pertenecen a una recta: el coeficiente cuadrático a es 0.",
+                "consejo": "Para funciones lineales usa Secante o resuelve ax+b=0 directamente.",
+            }
+    except Exception:
+        pass
 
     def _ev(val):
         try:
@@ -1064,6 +1440,36 @@ def metodo_muller(latex_str, x0, x1, x2, tol, max_iter):
             return round(c.real, 6)
         s = "+" if c.imag >= 0 else "−"
         return f"{round(c.real,4)} {s} {round(abs(c.imag),4)}i"
+
+    try:
+        valores_semilla = [_ev(x0), _ev(x1), _ev(x2)]
+    except ValueError as exc:
+        return {"error": True, "titulo": "🛑 Error de evaluación", "mensaje": str(exc)}
+
+    for semilla, valor in zip([x0, x1, x2], valores_semilla):
+        if abs(valor) < _DIV_ZERO_THRESH:
+            f_num = sp.lambdify(var, f_sim, "numpy")
+            return _resultado_raiz_inicial(
+                f_num, var, semilla, _COLOR["muller"], "muller",
+                {
+                    "iteracion": 0,
+                    "x0": _fc(x0),
+                    "x1": _fc(x1),
+                    "x2": _fc(x2),
+                    "xr": _fc(semilla),
+                    "fxr": _fc(valor),
+                    "ea": 0,
+                },
+                f"Müller no requiere interpolar porque f({semilla}) = 0.",
+            )
+
+    if len({x0, x1, x2}) < 3:
+        return {
+            "error": True,
+            "titulo": "⚠️ Semillas repetidas",
+            "mensaje": "x0, x1 y x2 deben ser tres valores distintos.",
+            "consejo": "Separa más las semillas.",
+        }
 
     cx0, cx1, cx2 = complex(x0), complex(x1), complex(x2)
     resultados     = []
@@ -1179,6 +1585,14 @@ def metodo_bairstow(latex_str, r0, s0, tol, max_iter):
       4. Tabla: se muestran TODAS las filas (no truncadas) para transparencia
       5. Gráfica con clip dinámico (percentil) en vez de valor fijo
     """
+    err = _validar_reales(r0=r0, s0=s0)
+    if err:
+        return err
+    err = _validar_tol_iter(tol, max_iter)
+    if err:
+        return err
+    r0, s0, tol, max_iter = float(r0), float(s0), float(tol), int(float(max_iter))
+
     f_sim, var, err = parsear_funcion(latex_str)
     if err:
         return err
@@ -1416,6 +1830,8 @@ def biseccion():
                 float(request.form["tol"]),
                 int(request.form["max_iter"]),
             )
+        except (KeyError, ValueError, OverflowError) as exc:
+            datos = _error_formulario(exc)
         except Exception as exc:
             datos = {"error": True, "titulo": "🛑 Error inesperado",
                      "mensaje": str(exc)[:300]}
@@ -1434,6 +1850,8 @@ def falsa_posicion():
                 float(request.form["tol"]),
                 int(request.form["max_iter"]),
             )
+        except (KeyError, ValueError, OverflowError) as exc:
+            datos = _error_formulario(exc)
         except Exception as exc:
             datos = {"error": True, "titulo": "🛑 Error inesperado",
                      "mensaje": str(exc)[:300]}
@@ -1451,6 +1869,8 @@ def newton():
                 float(request.form["tol"]),
                 int(request.form["max_iter"]),
             )
+        except (KeyError, ValueError, OverflowError) as exc:
+            datos = _error_formulario(exc)
         except Exception as exc:
             datos = {"error": True, "titulo": "🛑 Error inesperado",
                      "mensaje": str(exc)[:300]}
@@ -1469,6 +1889,8 @@ def secante():
                 float(request.form["tol"]),
                 int(request.form["max_iter"]),
             )
+        except (KeyError, ValueError, OverflowError) as exc:
+            datos = _error_formulario(exc)
         except Exception as exc:
             datos = {"error": True, "titulo": "🛑 Error inesperado",
                      "mensaje": str(exc)[:300]}
@@ -1486,6 +1908,8 @@ def taylor():
                 float(request.form["x_eval"]),
                 int(request.form["n_terminos"]),
             )
+        except (KeyError, ValueError, OverflowError) as exc:
+            datos = _error_formulario(exc)
         except Exception as exc:
             datos = {"error": True, "titulo": "🛑 Error inesperado",
                      "mensaje": str(exc)[:300]}
@@ -1503,6 +1927,8 @@ def punto_fijo():
                 float(request.form["tol"]),
                 int(request.form["max_iter"]),
             )
+        except (KeyError, ValueError, OverflowError) as exc:
+            datos = _error_formulario(exc)
         except Exception as exc:
             datos = {"error": True, "titulo": "🛑 Error inesperado",
                      "mensaje": str(exc)[:300]}
@@ -1518,6 +1944,8 @@ def horner():
                 request.form["ecuacion_latex"],
                 float(request.form["x0"]),
             )
+        except (KeyError, ValueError, OverflowError) as exc:
+            datos = _error_formulario(exc)
         except Exception as exc:
             datos = {"error": True, "titulo": "🛑 Error inesperado",
                      "mensaje": str(exc)[:300]}
@@ -1535,6 +1963,8 @@ def horner_newton():
                 float(request.form["tol"]),
                 int(request.form["max_iter"]),
             )
+        except (KeyError, ValueError, OverflowError) as exc:
+            datos = _error_formulario(exc)
         except Exception as exc:
             datos = {"error": True, "titulo": "🛑 Error inesperado",
                      "mensaje": str(exc)[:300]}
@@ -1554,6 +1984,8 @@ def muller():
                 float(request.form["tol"]),
                 int(request.form["max_iter"]),
             )
+        except (KeyError, ValueError, OverflowError) as exc:
+            datos = _error_formulario(exc)
         except Exception as exc:
             datos = {"error": True, "titulo": "🛑 Error inesperado",
                      "mensaje": str(exc)[:300]}
@@ -1572,6 +2004,8 @@ def bairstow():
                 float(request.form["tol"]),
                 int(request.form["max_iter"]),
             )
+        except (KeyError, ValueError, OverflowError) as exc:
+            datos = _error_formulario(exc)
         except Exception as exc:
             datos = {"error": True, "titulo": "🛑 Error inesperado",
                      "mensaje": str(exc)[:300]}

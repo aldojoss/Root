@@ -88,9 +88,7 @@
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   const mf   = document.getElementById('formula');
-  const calc = Desmos.GraphingCalculator(document.getElementById('desmos'), {
-    expressions: false, keypad: false, backgroundColor: '#0f1117'
-  });
+  const calc = createDarkDesmos(document.getElementById('desmos'));
   function update() {
     calc.setExpression({ id:'P', latex:'P(x)=' + (mf.value||'0'), color:'#c792ea' });
   }

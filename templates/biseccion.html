@@ -72,11 +72,7 @@
 document.addEventListener('DOMContentLoaded', () => {
   const mf  = document.getElementById('formula');
   const elt = document.getElementById('desmos');
-  const calc = Desmos.GraphingCalculator(elt, {
-    expressions: false, keypad: false,
-    backgroundColor: '#0f1117',
-    textColor: '#7a7f95',
-  });
+  const calc = createDarkDesmos(elt);
 
   function update() {
     calc.setExpression({ id:'f', latex:'f(x)=' + (mf.value||'0'), color:'#4f9cf9' });

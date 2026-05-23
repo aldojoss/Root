@@ -1,0 +1,228 @@
+{% set matrix_default_value = matrix_default|default("2 1 -1 8\n-3 -1 2 -11\n-2 1 2 -3") %}
+{% set matrix_value = request.form.get('matriz', matrix_default_value) %}
+
+<div class="matrix-editor" data-min-size="2" data-max-size="{{ matrix_max|default(10) }}">
+  <script type="application/json" class="matrix-seed">{{ matrix_value|tojson }}</script>
+  <input type="hidden" name="matriz" class="matrix-hidden" value="{{ matrix_value|e }}">
+
+  <div class="matrix-toolbar">
+    <div class="matrix-size-wrap">
+      <label class="form-label-nm" for="matrix-size-{{ matrix_id|default('linear') }}">Tamaño</label>
+      <select id="matrix-size-{{ matrix_id|default('linear') }}" class="form-control-nm matrix-size" aria-label="Tamaño del sistema">
+        {% for n in range(2, (matrix_max|default(10)) + 1) %}
+          <option value="{{ n }}">{{ n }} x {{ n }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="matrix-actions">
+      <button type="button" class="btn-nm btn-primary-nm matrix-example">
+        <i class="bi bi-stars"></i> Ejemplo 3x3
+      </button>
+      <button type="button" class="btn-nm btn-ghost-nm matrix-identity">
+        <i class="bi bi-grid-3x3"></i> Identidad
+      </button>
+      <button type="button" class="btn-nm btn-ghost-nm matrix-clear">
+        <i class="bi bi-eraser"></i> Limpiar
+      </button>
+    </div>
+  </div>
+
+  <div class="matrix-shell">
+    <div class="matrix-grid" role="group" aria-label="Editor de matriz aumentada"></div>
+  </div>
+  <div class="matrix-status" aria-live="polite"></div>
+</div>
+
+<script>
+(() => {
+  const example3x3 = [
+    ["2", "1", "-1", "8"],
+    ["-3", "-1", "2", "-11"],
+    ["-2", "1", "2", "-3"],
+  ];
+
+  function clamp(value, min, max) {
+    return Math.min(Math.max(value, min), max);
+  }
+
+  function parseMatrix(text) {
+    if (!text) return [];
+    return text
+      .replace(/;/g, "\n")
+      .split(/\n+/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => line.replace(/[|,]/g, " ").split(/\s+/).filter(Boolean));
+  }
+
+  function detectSize(data, fallback, min, max) {
+    if (!data.length) return fallback;
+    const width = Math.max(...data.map((row) => row.length));
+    const fromRows = data.length;
+    const fromWidth = width > 1 ? width - 1 : fallback;
+    return clamp(width === fromRows + 1 ? fromRows : fromWidth, min, max);
+  }
+
+  function normalized(source, size, fill = "0") {
+    return Array.from({ length: size }, (_, row) =>
+      Array.from({ length: size + 1 }, (_, col) => {
+        const value = source[row] && source[row][col] !== undefined ? source[row][col] : fill;
+        return String(value);
+      })
+    );
+  }
+
+  function resized(source, oldSize, newSize, fill = "0") {
+    return Array.from({ length: newSize }, (_, row) =>
+      Array.from({ length: newSize + 1 }, (_, col) => {
+        if (!source[row]) return fill;
+        if (col < Math.min(oldSize, newSize)) {
+          return source[row][col] !== undefined ? String(source[row][col]) : fill;
+        }
+        if (col === newSize) {
+          return source[row][oldSize] !== undefined ? String(source[row][oldSize]) : fill;
+        }
+        return fill;
+      })
+    );
+  }
+
+  function initMatrixEditor(editor) {
+    if (editor.dataset.ready === "true") return;
+    editor.dataset.ready = "true";
+
+    const minSize = Number(editor.dataset.minSize || 2);
+    const maxSize = Number(editor.dataset.maxSize || 10);
+    const seed = editor.querySelector(".matrix-seed");
+    const hidden = editor.querySelector(".matrix-hidden");
+    const sizeSelect = editor.querySelector(".matrix-size");
+    const grid = editor.querySelector(".matrix-grid");
+    const status = editor.querySelector(".matrix-status");
+    const form = editor.closest("form");
+
+    let raw = hidden.value;
+    try {
+      raw = JSON.parse(seed.textContent || "\"\"");
+    } catch (_err) {
+      raw = hidden.value;
+    }
+
+    let values = parseMatrix(raw);
+    let size = detectSize(values, 3, minSize, maxSize);
+    values = normalized(values.length ? values : example3x3, size);
+    sizeSelect.value = String(size);
+
+    function serialize() {
+      const rows = values.map((row) => row.slice(0, size + 1).map((value) => String(value).trim() || "0").join(" "));
+      hidden.value = rows.join("\n");
+      return hidden.value;
+    }
+
+    function cellInput(row, col, value, isB) {
+      const input = document.createElement("input");
+      input.type = "text";
+      input.inputMode = "decimal";
+      input.autocomplete = "off";
+      input.spellcheck = false;
+      input.required = true;
+      input.className = `form-control-nm matrix-cell${isB ? " is-b" : ""}`;
+      input.value = value;
+      input.setAttribute("aria-label", isB ? `Término independiente b${row + 1}` : `Coeficiente a${row + 1}${col + 1}`);
+      input.title = "Número, decimal o fracción";
+      input.addEventListener("input", () => {
+        input.setCustomValidity("");
+        status.textContent = "";
+        values[row][col] = input.value;
+        serialize();
+      });
+      return input;
+    }
+
+    function label(text, className) {
+      const span = document.createElement("div");
+      span.className = className;
+      span.textContent = text;
+      return span;
+    }
+
+    function render(nextSize, nextValues = values, fill = "0") {
+      size = clamp(Number(nextSize), minSize, maxSize);
+      values = normalized(nextValues, size, fill);
+      sizeSelect.value = String(size);
+      grid.innerHTML = "";
+      grid.style.gridTemplateColumns = `46px repeat(${size}, minmax(74px, 1fr)) 28px minmax(74px, 1fr)`;
+
+      grid.appendChild(label("Fila", "matrix-head matrix-corner"));
+      for (let col = 0; col < size; col += 1) {
+        grid.appendChild(label(`x${col + 1}`, "matrix-head"));
+      }
+      grid.appendChild(label("=", "matrix-head matrix-eq"));
+      grid.appendChild(label("b", "matrix-head matrix-b-head"));
+
+      for (let row = 0; row < size; row += 1) {
+        grid.appendChild(label(`E${row + 1}`, "matrix-row-label"));
+        for (let col = 0; col < size; col += 1) {
+          grid.appendChild(cellInput(row, col, values[row][col], false));
+        }
+        grid.appendChild(label("=", "matrix-eq"));
+        grid.appendChild(cellInput(row, size, values[row][size], true));
+      }
+      serialize();
+    }
+
+    sizeSelect.addEventListener("change", () => {
+      const nextSize = Number(sizeSelect.value);
+      render(nextSize, resized(values, size, nextSize, "0"), "0");
+    });
+
+    editor.querySelector(".matrix-example").addEventListener("click", () => {
+      status.textContent = "";
+      render(3, example3x3, "0");
+    });
+
+    editor.querySelector(".matrix-identity").addEventListener("click", () => {
+      const identity = Array.from({ length: size }, (_, row) =>
+        Array.from({ length: size + 1 }, (_, col) => (col < size ? (row === col ? "1" : "0") : "0"))
+      );
+      status.textContent = "";
+      render(size, identity, "0");
+    });
+
+    editor.querySelector(".matrix-clear").addEventListener("click", () => {
+      status.textContent = "";
+      render(size, [], "");
+      const first = editor.querySelector(".matrix-cell");
+      if (first) first.focus();
+    });
+
+    if (form) {
+      form.addEventListener("submit", (event) => {
+        const cells = [...editor.querySelectorAll(".matrix-cell")];
+        const empty = cells.find((cell) => !cell.value.trim());
+        cells.forEach((cell) => cell.setCustomValidity(""));
+        if (empty) {
+          empty.setCustomValidity("Completa esta celda de la matriz.");
+          status.textContent = "Completa todas las celdas antes de resolver.";
+          empty.reportValidity();
+          event.preventDefault();
+          return;
+        }
+        serialize();
+      });
+    }
+
+    render(size, values, "0");
+  }
+
+  function bootMatrixEditors() {
+    document.querySelectorAll(".matrix-editor").forEach(initMatrixEditor);
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bootMatrixEditors);
+  } else {
+    bootMatrixEditors();
+  }
+})();
+</script>

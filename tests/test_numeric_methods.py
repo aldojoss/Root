@@ -127,6 +127,61 @@ class NumericMethodsTest(unittest.TestCase):
         for datos in cases:
             self.assertSuccessWithGraph(datos)
 
+    def test_linear_system_methods_solve_sec(self):
+        matrix = "2 1 -1 8\n-3 -1 2 -11\n-2 1 2 -3"
+        expected = [2.0, 3.0, -1.0]
+
+        for solver in [home.metodo_gauss, home.metodo_gauss_jordan, home.metodo_lu]:
+            with self.subTest(solver=solver.__name__):
+                datos = solver(matrix)
+                self.assertFalse(datos.get("error"), datos)
+                self.assertEqual(datos.get("tipo"), "sistema_lineal")
+                self.assertTrue(datos.get("pasos"))
+                for got, exp in zip(datos["solucion"], expected):
+                    self.assertAlmostEqual(float(got), exp, places=6)
+
+    def test_linear_system_errors_are_controlled(self):
+        malformed = home.metodo_gauss("1 2\n3 4")
+        singular = home.metodo_gauss("1 1 2\n2 2 4")
+
+        self.assertTrue(malformed.get("error"))
+        self.assertTrue(singular.get("error"))
+        self.assertIn(singular.get("titulo"), {"⚠️ Sistema singular", "⚠️ Sustitución imposible"})
+
+    def test_newton_systems_solves_and_rejects_singular_jacobian(self):
+        datos = home.metodo_newton_sistemas(
+            "x^2 + y^2 - 4\nx - y",
+            "x,y",
+            "1,1",
+            0.0001,
+            50,
+        )
+
+        self.assertFalse(datos.get("error"), datos)
+        self.assertEqual(datos.get("tipo"), "newton_sistemas")
+        self.assertTrue(_png_ok(datos))
+        self.assertAlmostEqual(float(datos["solucion"][0]), math.sqrt(2), places=4)
+        self.assertAlmostEqual(float(datos["solucion"][1]), math.sqrt(2), places=4)
+
+        exact = home.metodo_newton_sistemas(
+            "x^2\n y^2",
+            "x,y",
+            "0,0",
+            0.0001,
+            10,
+        )
+        self.assertFalse(exact.get("error"), exact)
+
+        singular = home.metodo_newton_sistemas(
+            "x^2 + 1\n y^2 + 1",
+            "x,y",
+            "0,0",
+            0.0001,
+            10,
+        )
+        self.assertTrue(singular.get("error"))
+        self.assertEqual(singular.get("titulo"), "⚠️ Jacobiano singular")
+
 
 class FlaskRoutesTest(unittest.TestCase):
     def setUp(self):
@@ -136,12 +191,23 @@ class FlaskRoutesTest(unittest.TestCase):
         for path in [
             "/", "/biseccion", "/falsa_posicion", "/newton", "/secante",
             "/taylor", "/punto_fijo", "/horner", "/horner_newton",
-            "/muller", "/bairstow",
+            "/muller", "/bairstow", "/gauss", "/gauss_jordan", "/lu",
+            "/newton_sistemas",
         ]:
             with self.subTest(path=path):
                 response = self.client.get(path)
                 self.assertEqual(response.status_code, 200)
                 self.assertGreater(len(response.data), 1000)
+
+    def test_linear_system_routes_use_matrix_editor(self):
+        for path in ["/gauss", "/gauss_jordan", "/lu"]:
+            with self.subTest(path=path):
+                response = self.client.get(path)
+                html = response.data.decode("utf-8", errors="replace")
+                self.assertIn("matrix-editor", html)
+                self.assertIn("matrix-grid", html)
+                self.assertIn('name="matriz"', html)
+                self.assertNotIn("<textarea name=\"matriz\"", html)
 
     def test_valid_posts_render_results_without_server_errors(self):
         forms = {
@@ -155,6 +221,16 @@ class FlaskRoutesTest(unittest.TestCase):
             "/horner_newton": {"ecuacion_latex": "x^3-6*x^2+11*x-6", "x0": "1.5", "tol": "0.001", "max_iter": "80"},
             "/muller": {"ecuacion_latex": "x^2-4", "x0": "0", "x1": "1", "x2": "3", "tol": "0.001", "max_iter": "80"},
             "/bairstow": {"ecuacion_latex": "x^3-6*x^2+11*x-6", "r0": "0.5", "s0": "-0.5", "tol": "0.001", "max_iter": "100"},
+            "/gauss": {"matriz": "2 1 -1 8\n-3 -1 2 -11\n-2 1 2 -3"},
+            "/gauss_jordan": {"matriz": "2 1 -1 8\n-3 -1 2 -11\n-2 1 2 -3"},
+            "/lu": {"matriz": "2 1 -1 8\n-3 -1 2 -11\n-2 1 2 -3"},
+            "/newton_sistemas": {
+                "funciones": "x^2+y^2-4\nx-y",
+                "variables": "x,y",
+                "inicial": "1,1",
+                "tol": "0.0001",
+                "max_iter": "50",
+            },
         }
 
         for path, data in forms.items():
@@ -163,7 +239,10 @@ class FlaskRoutesTest(unittest.TestCase):
                 html = response.data.decode("utf-8", errors="replace")
                 self.assertEqual(response.status_code, 200)
                 self.assertNotIn("Error inesperado", html)
-                self.assertIn("data:image/png;base64", html)
+                if path in {"/gauss", "/gauss_jordan", "/lu"}:
+                    self.assertIn("Solución", html)
+                else:
+                    self.assertIn("data:image/png;base64", html)
 
     def test_bad_form_numbers_are_friendly_errors(self):
         response = self.client.post(

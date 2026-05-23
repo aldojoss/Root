@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block contenido %}
+<div class="page-header">
+  <div class="method-icon" style="background:rgba(79,156,249,0.15);">
+    <i class="bi bi-grid-3x3-gap" style="color:#4f9cf9;"></i>
+  </div>
+  <div>
+    <h2 style="color:#4f9cf9;">Eliminación de Gauss</h2>
+    <p>
+      Resuelve sistemas lineales Ax=b transformando la matriz aumentada a forma triangular superior
+      con pivoteo parcial y sustitución regresiva.
+    </p>
+  </div>
+</div>
+
+<div class="card-nm">
+  <div class="card-nm-header"><i class="bi bi-sliders"></i> Matriz aumentada [A|b]</div>
+  <div class="card-nm-body">
+    <form method="POST">
+      {% set matrix_id = 'gauss' %}
+      {% include '_matrix_editor.html' %}
+      <button type="submit" class="btn-nm btn-primary-nm">
+        <i class="bi bi-calculator"></i> Resolver sistema
+      </button>
+    </form>
+  </div>
+</div>
+
+{% include '_resultados_sistemas.html' %}
+{% endblock %}

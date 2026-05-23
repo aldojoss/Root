@@ -1,0 +1,182 @@
+{% if datos %}
+  {% if datos.error %}
+    <div class="alert-nm {% if datos.link_sympy %}danger{% else %}warning{% endif %}">
+      <div class="alert-icon">⚠️</div>
+      <div>
+        <h5>{{ datos.titulo }}</h5>
+        <p>{{ datos.mensaje }}</p>
+        {% if datos.consejo %}
+          <p class="tip"><i class="bi bi-lightbulb"></i> {{ datos.consejo }}</p>
+        {% endif %}
+      </div>
+    </div>
+  {% else %}
+    <div class="result-grid">
+      <div class="result-box success">
+        <div class="label">✓ Solución</div>
+        <div class="root-chips" style="margin:0">
+          {% for val in datos.solucion %}
+            <span class="root-chip real">x<sub>{{ loop.index }}</sub> = {{ val }}</span>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="result-box info">
+        <div class="label">Control numérico</div>
+        <div class="value small" style="color:var(--text-secondary); font-size:0.82rem; line-height:1.5;">
+          {{ datos.convergencia }}
+        </div>
+      </div>
+    </div>
+
+    {% if datos.grafica %}
+      <div class="section-label"><i class="bi bi-graph-up"></i> Análisis visual</div>
+      <div class="plot-wrap mb-4">
+        <img src="data:image/png;base64,{{ datos.grafica }}" alt="Gráfica del sistema" />
+      </div>
+    {% endif %}
+
+    {% if datos.tipo == 'newton_sistemas' %}
+      <div class="section-label"><i class="bi bi-braces"></i> Sistema y Jacobiano</div>
+      <div class="row g-3 mb-4">
+        <div class="col-lg-6">
+          <div class="card-nm">
+            <div class="card-nm-header"><i class="bi bi-list-check"></i> F(x)=0</div>
+            <div class="card-nm-body">
+              {% for f in datos.funciones %}
+                <div class="poly-box mb-2">f{{ loop.index }} = {{ f }}</div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="card-nm">
+            <div class="card-nm-header"><i class="bi bi-grid-3x3"></i> J(x)</div>
+            <div class="card-nm-body" style="overflow-x:auto;">
+              <table class="table-nm">
+                <tbody>
+                  {% for fila in datos.jacobiano %}
+                    <tr>
+                      {% for c in fila %}
+                        <td class="cell-purple">{{ c }}</td>
+                      {% endfor %}
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-label"><i class="bi bi-table"></i> Iteraciones</div>
+      <div class="card-nm" style="overflow-x:auto;">
+        <table class="table-nm">
+          <thead>
+            <tr>
+              <th>#</th><th>xᵢ</th><th>F(xᵢ)</th><th>Δx</th><th>xᵢ₊₁</th><th>||F||∞</th><th>Error (%)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for fila in datos.resultados %}
+              <tr>
+                <td class="cell-iter">{{ fila.iteracion }}</td>
+                <td>{{ fila.x }}</td>
+                <td>{{ fila.F }}</td>
+                <td class="cell-blue">{{ fila.delta }}</td>
+                <td class="cell-result">{{ fila.x_siguiente }}</td>
+                <td>{{ fila.norma }}</td>
+                <td class="cell-error">{{ fila.ea }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      {% if datos.extras and datos.extras.L %}
+        <div class="section-label"><i class="bi bi-diagram-3"></i> Factorización PA = LU</div>
+        <div class="row g-3 mb-4">
+          {% for nombre in ['P', 'L', 'U'] %}
+            <div class="col-lg-4">
+              <div class="card-nm">
+                <div class="card-nm-header">{{ nombre }}</div>
+                <div class="card-nm-body" style="overflow-x:auto;">
+                  <table class="table-nm">
+                    <tbody>
+                      {% for fila in datos.extras[nombre] %}
+                        <tr>
+                          {% for c in fila %}
+                            <td class="{% if nombre == 'L' %}cell-result{% elif nombre == 'U' %}cell-blue{% else %}cell-purple{% endif %}">{{ c }}</td>
+                          {% endfor %}
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      {% if datos.matriz_final %}
+        <div class="section-label"><i class="bi bi-grid-3x3"></i> Matriz final</div>
+        <div class="card-nm mb-4" style="overflow-x:auto;">
+          <table class="table-nm">
+            <tbody>
+              {% for fila in datos.matriz_final %}
+                <tr>
+                  {% for c in fila %}
+                    <td class="{% if loop.last %}cell-result{% else %}cell-blue{% endif %}">{{ c }}</td>
+                  {% endfor %}
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endif %}
+
+      <div class="section-label"><i class="bi bi-list-ol"></i> Pasos del método</div>
+      {% for paso in datos.pasos %}
+        <div class="factor-card">
+          <div class="factor-card-header">
+            <span class="factor-title">{{ paso.titulo }}</span>
+          </div>
+          <div class="factor-card-body" style="overflow-x:auto;">
+            {% if paso.matriz %}
+              <table class="table-nm">
+                <tbody>
+                  {% for fila in paso.matriz %}
+                    <tr>
+                      {% for c in fila %}
+                        <td class="{% if loop.last %}cell-result{% else %}cell-blue{% endif %}">{{ c }}</td>
+                      {% endfor %}
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            {% else %}
+              <div class="row g-3">
+                {% for nombre in ['P', 'L', 'U'] %}
+                  <div class="col-lg-4">
+                    <div class="section-label" style="margin-bottom:6px;">{{ nombre }}</div>
+                    <table class="table-nm">
+                      <tbody>
+                        {% for fila in paso[nombre] %}
+                          <tr>
+                            {% for c in fila %}
+                              <td>{{ c }}</td>
+                            {% endfor %}
+                          </tr>
+                        {% endfor %}
+                      </tbody>
+                    </table>
+                  </div>
+                {% endfor %}
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    {% endif %}
+  {% endif %}
+{% endif %}

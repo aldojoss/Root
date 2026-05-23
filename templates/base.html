@@ -353,6 +353,107 @@
     .btn-orange-nm  { background: var(--accent-orange); color: #0d0f14; }
     .btn-purple-nm  { background: var(--accent-purple); color: #0d0f14; }
     .btn-yellow-nm  { background: var(--accent-yellow); color: #0d0f14; }
+    .btn-ghost-nm   {
+      background: #202637;
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+    }
+
+    /* ── Matrix editor ─────────────────────────────────────────────────────── */
+    .matrix-editor {
+      display: grid;
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .matrix-toolbar {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .matrix-size-wrap { width: min(170px, 100%); }
+
+    .matrix-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .matrix-shell {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background:
+        linear-gradient(90deg, rgba(79,156,249,0.05), rgba(67,217,162,0.04)),
+        var(--bg-input);
+    }
+
+    .matrix-grid {
+      display: grid;
+      gap: 8px;
+      align-items: center;
+      min-width: max-content;
+      padding: 14px;
+    }
+
+    .matrix-head,
+    .matrix-row-label,
+    .matrix-eq {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      text-align: center;
+    }
+
+    .matrix-head {
+      color: var(--text-muted);
+      padding: 0 4px 2px;
+    }
+
+    .matrix-corner,
+    .matrix-row-label { color: var(--accent-blue); }
+
+    .matrix-b-head { color: var(--accent-green); }
+
+    .matrix-row-label {
+      align-self: stretch;
+      display: grid;
+      place-items: center;
+      border-radius: var(--radius-sm);
+      background: rgba(79,156,249,0.08);
+    }
+
+    .matrix-eq {
+      color: var(--accent-yellow);
+      font-size: 0.88rem;
+    }
+
+    .matrix-cell {
+      min-width: 74px;
+      height: 42px;
+      padding: 8px 10px;
+      text-align: center;
+      font-size: 0.84rem;
+    }
+
+    .matrix-cell.is-b {
+      color: #d7fff0;
+      border-color: rgba(67,217,162,0.45);
+      background: rgba(67,217,162,0.08);
+    }
+
+    .matrix-status {
+      min-height: 18px;
+      color: var(--accent-orange);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+    }
 
     /* ── Results ────────────────────────────────────────────────────────────── */
     .result-grid {
@@ -602,6 +703,13 @@
       .app-shell { flex-direction: column; }
       .main-content { padding: 20px 16px; }
       .result-grid { grid-template-columns: 1fr; }
+      .matrix-toolbar { align-items: stretch; }
+      .matrix-size-wrap,
+      .matrix-actions { width: 100%; }
+      .matrix-actions { justify-content: stretch; }
+      .matrix-actions .btn-nm { flex: 1 1 140px; justify-content: center; }
+      .matrix-grid { padding: 12px; gap: 7px; }
+      .matrix-cell { min-width: 68px; }
     }
   </style>
 </head>
@@ -646,7 +754,7 @@
         <i class="bi bi-chevron-down toggle-arrow"></i>
       </div>
       <div class="nav-sub collapse show" id="grpAbiertos">
-        <a href="/newton"     class="nav-item {% if '/newton' in request.path %}active{% endif %}">
+        <a href="/newton"     class="nav-item {% if request.path == '/newton' %}active{% endif %}">
           <i class="bi bi-lightning-charge"></i> Newton-Raphson
         </a>
         <a href="/secante"    class="nav-item {% if '/secante' in request.path %}active{% endif %}">
@@ -674,6 +782,21 @@
       </a>
       <a href="/bairstow"     class="nav-item {% if '/bairstow' in request.path %}active{% endif %}">
         <i class="bi bi-scissors"></i> Bairstow
+      </a>
+
+      <span class="nav-label" style="margin-top:8px">Sistemas de Ecuaciones</span>
+
+      <a href="/gauss" class="nav-item {% if request.path == '/gauss' %}active{% endif %}">
+        <i class="bi bi-grid-3x3-gap"></i> Eliminación de Gauss
+      </a>
+      <a href="/gauss_jordan" class="nav-item {% if '/gauss_jordan' in request.path %}active{% endif %}">
+        <i class="bi bi-grid-1x2"></i> Gauss-Jordan
+      </a>
+      <a href="/lu" class="nav-item {% if request.path == '/lu' %}active{% endif %}">
+        <i class="bi bi-diagram-3"></i> LU
+      </a>
+      <a href="/newton_sistemas" class="nav-item {% if '/newton_sistemas' in request.path %}active{% endif %}">
+        <i class="bi bi-bounding-box-circles"></i> Newton Sistemas
       </a>
     </div>
   </nav>

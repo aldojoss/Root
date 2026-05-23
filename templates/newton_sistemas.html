@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% block contenido %}
+<div class="page-header">
+  <div class="method-icon" style="background:rgba(249,123,79,0.15);">
+    <i class="bi bi-bounding-box-circles" style="color:#f97b4f;"></i>
+  </div>
+  <div>
+    <h2 style="color:#f97b4f;">Newton-Raphson para Sistemas</h2>
+    <p>
+      Resuelve F(x)=0 usando el Jacobiano simbólico. En cada iteración calcula
+      J(xᵢ)Δx = −F(xᵢ) y actualiza xᵢ₊₁ = xᵢ + Δx.
+    </p>
+  </div>
+</div>
+
+<div class="card-nm">
+  <div class="card-nm-header"><i class="bi bi-sliders"></i> Sistema no lineal</div>
+  <div class="card-nm-body">
+    <form method="POST">
+      <div class="row g-3 mb-3">
+        <div class="col-lg-7">
+          <label class="form-label-nm">Funciones fᵢ(x)=0, una por línea</label>
+          <textarea name="funciones" class="form-control-nm" required
+                    style="min-height:150px; resize:vertical;"
+                    placeholder="x^2 + y^2 - 4&#10;x - y">{{ request.form.get('funciones','') }}</textarea>
+        </div>
+        <div class="col-lg-5">
+          <label class="form-label-nm">Variables</label>
+          <input name="variables" class="form-control-nm" required
+                 placeholder="x,y" value="{{ request.form.get('variables','') }}">
+          <label class="form-label-nm mt-3">Semilla inicial</label>
+          <input name="inicial" class="form-control-nm" required
+                 placeholder="1,1" value="{{ request.form.get('inicial','') }}">
+          <div class="row g-3 mt-1">
+            <div class="col-6">
+              <label class="form-label-nm">Tolerancia</label>
+              <input type="number" step="any" name="tol" class="form-control-nm"
+                     required placeholder="0.0001" value="{{ request.form.get('tol','') }}">
+            </div>
+            <div class="col-6">
+              <label class="form-label-nm">Máx. iteraciones</label>
+              <input type="number" name="max_iter" class="form-control-nm"
+                     required placeholder="50" value="{{ request.form.get('max_iter','') }}">
+            </div>
+          </div>
+        </div>
+      </div>
+      <p style="font-size:0.75rem; color:var(--text-muted); margin:0 0 16px;">
+        Ejemplo: variables x,y; funciones x^2+y^2-4 y x-y; semilla 1,1.
+      </p>
+      <button type="submit" class="btn-nm btn-orange-nm">
+        <i class="bi bi-calculator"></i> Iterar Newton
+      </button>
+    </form>
+  </div>
+</div>
+
+{% include '_resultados_sistemas.html' %}
+{% endblock %}

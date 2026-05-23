@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block contenido %}
+<div class="page-header">
+  <div class="method-icon" style="background:rgba(67,217,162,0.15);">
+    <i class="bi bi-grid-1x2" style="color:#43d9a2;"></i>
+  </div>
+  <div>
+    <h2 style="color:#43d9a2;">Gauss-Jordan</h2>
+    <p>
+      Lleva la matriz aumentada hasta forma reducida por filas. Si el sistema tiene solución única,
+      la última columna queda directamente como vector solución.
+    </p>
+  </div>
+</div>
+
+<div class="card-nm">
+  <div class="card-nm-header"><i class="bi bi-sliders"></i> Matriz aumentada [A|b]</div>
+  <div class="card-nm-body">
+    <form method="POST">
+      {% set matrix_id = 'gauss-jordan' %}
+      {% include '_matrix_editor.html' %}
+      <button type="submit" class="btn-nm btn-green-nm">
+        <i class="bi bi-calculator"></i> Reducir matriz
+      </button>
+    </form>
+  </div>
+</div>
+
+{% include '_resultados_sistemas.html' %}
+{% endblock %}

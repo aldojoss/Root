@@ -456,6 +456,237 @@ def _extraer_coeficientes(f_sim, x):
     except Exception:
         raise ValueError("La expresión no es un polinomio finito.")
 
+
+# =============================================================================
+# HELPERS — SISTEMAS DE ECUACIONES
+# =============================================================================
+def _parse_numero_matriz(token):
+    token = str(token).strip()
+    if not token:
+        raise ValueError("valor vacío")
+    try:
+        val = float(token)
+    except ValueError:
+        val = float(sp.N(sp.sympify(token.replace("^", "**"))))
+    if not math.isfinite(val) or abs(val) > _DIVERGE_THRESH:
+        raise ValueError(f"valor fuera de rango: {token}")
+    return val
+
+
+def _parse_matriz_aumentada(texto, max_n=10):
+    if not texto or not texto.strip():
+        return None, None, _error_parametro(
+            "La matriz aumentada está vacía.",
+            "Escribe una fila por línea con los coeficientes y el término independiente.",
+        )
+
+    filas = []
+    for raw in texto.replace(";", "\n").splitlines():
+        linea = raw.strip()
+        if not linea:
+            continue
+        linea = linea.replace("|", " ").replace(",", " ")
+        try:
+            filas.append([_parse_numero_matriz(tok) for tok in linea.split()])
+        except Exception as exc:
+            return None, None, _error_parametro(
+                f"No se pudo leer la fila '{raw.strip()}': {str(exc)[:120]}",
+                "Usa números separados por espacios. Ejemplo: 2 1 -1 8",
+            )
+
+    if not filas:
+        return None, None, _error_parametro("No se detectaron filas numéricas.")
+
+    ancho = len(filas[0])
+    if ancho < 2:
+        return None, None, _error_parametro("Cada fila debe tener al menos un coeficiente y b.")
+    if any(len(f) != ancho for f in filas):
+        return None, None, _error_parametro(
+            "Todas las filas deben tener la misma cantidad de columnas.",
+            "Revisa que no falte ningún coeficiente o término independiente.",
+        )
+
+    n = len(filas)
+    if n > max_n:
+        return None, None, _error_parametro(
+            f"El sistema supera el tamaño máximo permitido ({max_n} ecuaciones)."
+        )
+    if ancho != n + 1:
+        return None, None, _error_parametro(
+            f"La matriz aumentada debe tener {n + 1} columnas para {n} ecuaciones.",
+            "Formato: a11 a12 ... a1n b1",
+        )
+
+    aug = np.array(filas, dtype=float)
+    return aug[:, :-1], aug[:, -1], None
+
+
+def _fmt_vec(vec):
+    return [_fmt_num(v) for v in np.asarray(vec, dtype=float).tolist()]
+
+
+def _fmt_matrix(mat):
+    return [[_fmt_num(v) for v in fila] for fila in np.asarray(mat, dtype=float).tolist()]
+
+
+def _residuo_lineal(A, x, b):
+    return float(np.linalg.norm(A @ x - b, ord=np.inf))
+
+
+def _resultado_sistema_lineal(metodo, solucion, A, b, pasos, matriz_final=None, extras=None):
+    extras = extras or {}
+    return {
+        "error": False,
+        "tipo": "sistema_lineal",
+        "metodo": metodo,
+        "solucion": _fmt_vec(solucion),
+        "raiz": ", ".join(f"x{i+1}={_fmt_num(v)}" for i, v in enumerate(solucion)),
+        "convergencia": (
+            f"Sistema resuelto por {metodo}. "
+            f"Residuo máximo ||Ax-b||∞ = {_fmt_num(_residuo_lineal(A, solucion, b))}."
+        ),
+        "pasos": pasos,
+        "matriz_final": _fmt_matrix(matriz_final) if matriz_final is not None else None,
+        "extras": extras,
+    }
+
+
+def _parse_variables_sistema(texto_vars):
+    if not texto_vars or not texto_vars.strip():
+        return None, _error_parametro(
+            "Debes indicar las variables del sistema no lineal.",
+            "Ejemplo: x,y",
+        )
+
+    nombres = [
+        v.strip().lower()
+        for v in texto_vars.replace(";", ",").replace(" ", ",").split(",")
+        if v.strip()
+    ]
+    if len(nombres) != len(set(nombres)):
+        return None, _error_parametro("Las variables no deben repetirse.")
+    if not nombres or len(nombres) > 6:
+        return None, _error_parametro("Usa entre 1 y 6 variables.")
+
+    try:
+        simbolos = [sp.Symbol(nombre) for nombre in nombres]
+    except Exception:
+        return None, _error_parametro("Los nombres de variables no son válidos.")
+    return simbolos, None
+
+
+def _parse_vector_inicial(texto, n):
+    if not texto or not texto.strip():
+        return None, _error_parametro("La semilla inicial está vacía.")
+    try:
+        vals = [
+            _parse_numero_matriz(tok)
+            for tok in texto.replace(";", " ").replace(",", " ").split()
+        ]
+    except Exception as exc:
+        return None, _error_parametro(f"No se pudo leer la semilla: {str(exc)[:120]}")
+    if len(vals) != n:
+        return None, _error_parametro(
+            f"La semilla debe tener {n} valores.",
+            "Escribe un valor por cada variable, separados por coma o espacio.",
+        )
+    return np.array(vals, dtype=float), None
+
+
+def _parse_expr_sistema(linea, variables):
+    local = {
+        str(v): v for v in variables
+    }
+    local.update({
+        "e": sp.E, "E": sp.E, "pi": sp.pi,
+        "sin": sp.sin, "cos": sp.cos, "tan": sp.tan,
+        "log": sp.log, "ln": sp.log, "sqrt": sp.sqrt,
+        "exp": sp.exp,
+    })
+    limpio = (linea.strip()
+              .replace(r"\mathrm{e}", "e")
+              .replace(r"\exponentialE", "e")
+              .replace(r"\cdot", "*")
+              .lower())
+    try:
+        expr = parse_latex(limpio)
+    except Exception:
+        expr = sp.sympify(limpio.replace("^", "**"), locals=local)
+
+    e_sym = sp.Symbol("e")
+    if e_sym in expr.free_symbols:
+        expr = expr.subs(e_sym, sp.E)
+    expr = expr.replace(
+        lambda node: getattr(node, "func", None) == sp.log
+        and len(node.args) == 2 and node.args[1] == sp.E,
+        lambda node: sp.log(node.args[0])
+    )
+    return expr
+
+
+def _parse_funciones_sistema(texto_funciones, variables):
+    if not texto_funciones or not texto_funciones.strip():
+        return None, _error_parametro("Debes escribir las funciones del sistema.")
+
+    lineas = [ln.strip() for ln in texto_funciones.splitlines() if ln.strip()]
+    if len(lineas) != len(variables):
+        return None, _error_parametro(
+            f"Se esperaban {len(variables)} funciones, pero se recibieron {len(lineas)}.",
+            "Escribe una ecuación fᵢ(x)=0 por línea.",
+        )
+
+    permitidas = set(variables)
+    exprs = []
+    for i, linea in enumerate(lineas, start=1):
+        try:
+            expr = _parse_expr_sistema(linea, variables)
+        except Exception as exc:
+            return None, _error_parametro(
+                f"No se pudo interpretar f{i}: {str(exc)[:160]}",
+                "Puedes escribir expresiones como x^2 + y^2 - 4.",
+            )
+        libres = expr.free_symbols - permitidas
+        if libres:
+            return None, _error_parametro(
+                f"f{i} contiene variables no declaradas: {sorted(str(v) for v in libres)}."
+            )
+        exprs.append(expr)
+    return exprs, None
+
+
+def _grafica_newton_sistemas(exprs, variables, puntos):
+    if len(exprs) != 2 or len(variables) != 2 or len(puntos) == 0:
+        return None
+    try:
+        xs = np.array([p[0] for p in puntos], dtype=float)
+        ys = np.array([p[1] for p in puntos], dtype=float)
+        cx = float(xs[-1])
+        cy = float(ys[-1])
+        margen = max(float(np.max(np.abs(xs - cx))) * 1.4,
+                     float(np.max(np.abs(ys - cy))) * 1.4, 2.0)
+        x_min, x_max = cx - margen, cx + margen
+        y_min, y_max = cy - margen, cy + margen
+        gx, gy = np.meshgrid(np.linspace(x_min, x_max, 250),
+                             np.linspace(y_min, y_max, 250))
+        f1 = sp.lambdify(variables, exprs[0], "numpy")
+        f2 = sp.lambdify(variables, exprs[1], "numpy")
+        with np.errstate(all="ignore"):
+            z1 = np.asarray(f1(gx, gy), dtype=float)
+            z2 = np.asarray(f2(gx, gy), dtype=float)
+
+        fig, ax = _hacer_figura()
+        ax.contour(gx, gy, z1, levels=[0], colors=[_COLOR["newton"]], linewidths=2.0)
+        ax.contour(gx, gy, z2, levels=[0], colors=[_COLOR["secante"]], linewidths=2.0)
+        ax.plot(xs, ys, "o-", color=_COLOR["raiz"], lw=1.4, ms=5, label="Iteraciones")
+        ax.plot(xs[-1], ys[-1], "o", color=_COLOR["limite"], ms=9, label="Solución")
+        ax.set_xlabel(str(variables[0]))
+        ax.set_ylabel(str(variables[1]))
+        ax.legend(fontsize=8, facecolor=_LEGEND, edgecolor=_AXIS, labelcolor=_TEXT)
+        fig.tight_layout()
+        return _grafica_b64(fig)
+    except Exception:
+        return None
+
 # =============================================================================
 # MÉTODO 1 — BISECCIÓN
 # =============================================================================
@@ -1427,7 +1658,7 @@ def metodo_muller(latex_str, x0, x1, x2, tol, max_iter):
             }
     except Exception:
         pass
-
+          #este sirve para evalua funciones
     def _ev(val):
         try:
             return complex(f_sim.subs(var, val).evalf())
@@ -1574,7 +1805,7 @@ def metodo_bairstow(latex_str, r0, s0, tol, max_iter):
     Extrae factores cuadráticos (x²−rx−s) iterativamente hasta encontrar
     TODAS las raíces del polinomio.
 
-    BUGS CORREGIDOS vs versión anterior:
+    B
       1. _extraer_coeficientes: término constante calculado UNA sola vez
       2. Deflación: cociente b[:n-1] producía grado n-2, pero si n=3 daba
          solo 2 coefs (lineal en vez de cuadrático). Ahora verificamos longitud
@@ -1640,7 +1871,7 @@ def metodo_bairstow(latex_str, r0, s0, tol, max_iter):
 
     def _extraer_factor(a_coefs, r_ini, s_ini):
         """
-        Itera hasta encontrar (r*, s*) tal que (x²−r*x−s*) | P(x).
+        Itera hasta encontrar (r*, s*) tal que (x²−r*x−s*) | P(x).7
         Retorna (r, s, coefs_cociente, todas_filas, error_msg).
         """
         n     = len(a_coefs) - 1
@@ -1794,6 +2025,334 @@ def metodo_bairstow(latex_str, r0, s0, tol, max_iter):
         "convergencia": (f"Se encontraron {len(todas_raices)} raíces en "
                          f"{n_factor - 1} extracción(es) cuadrática(s)."),
         "grafica": _grafica_b64(fig),
+    }
+
+
+# =============================================================================
+# MÉTODO 11 — ELIMINACIÓN DE GAUSS (SEC LINEALES)
+# =============================================================================
+def metodo_gauss(matriz_texto):
+    A, b, err = _parse_matriz_aumentada(matriz_texto)
+    if err:
+        return err
+
+    n = len(b)
+    M = np.column_stack((A.copy(), b.copy())).astype(float)
+    pasos = [{"titulo": "Matriz aumentada inicial", "matriz": _fmt_matrix(M)}]
+
+    for k in range(n - 1):
+        pivote_fila = k + int(np.argmax(np.abs(M[k:, k])))
+        if abs(M[pivote_fila, k]) < _DIV_ZERO_THRESH:
+            return {
+                "error": True,
+                "titulo": "⚠️ Sistema singular",
+                "mensaje": f"No hay pivote válido en la columna {k + 1}.",
+                "consejo": "Revisa si las ecuaciones son dependientes o incompatibles.",
+            }
+        if pivote_fila != k:
+            M[[k, pivote_fila]] = M[[pivote_fila, k]]
+            pasos.append({
+                "titulo": f"Intercambio F{k+1} ↔ F{pivote_fila+1}",
+                "matriz": _fmt_matrix(M),
+            })
+
+        for i in range(k + 1, n):
+            factor = M[i, k] / M[k, k]
+            M[i, k:] -= factor * M[k, k:]
+            M[i, k] = 0.0
+            pasos.append({
+                "titulo": f"F{i+1} ← F{i+1} − ({_fmt_num(factor)})F{k+1}",
+                "matriz": _fmt_matrix(M),
+            })
+
+    if abs(M[-1, -2]) < _DIV_ZERO_THRESH:
+        return {
+            "error": True,
+            "titulo": "⚠️ Sistema singular",
+            "mensaje": "El último pivote es cero; no hay solución única.",
+            "consejo": "Usa otro método de análisis o revisa el sistema.",
+        }
+
+    x = np.zeros(n, dtype=float)
+    for i in range(n - 1, -1, -1):
+        pivote = M[i, i]
+        if abs(pivote) < _DIV_ZERO_THRESH:
+            return {
+                "error": True,
+                "titulo": "⚠️ Sustitución imposible",
+                "mensaje": f"El pivote de la fila {i + 1} es cero.",
+            }
+        x[i] = (M[i, -1] - np.dot(M[i, i+1:n], x[i+1:n])) / pivote
+
+    return _resultado_sistema_lineal(
+        "Eliminación de Gauss",
+        x, A, b, pasos, matriz_final=M,
+    )
+
+
+# =============================================================================
+# MÉTODO 12 — GAUSS-JORDAN (SEC LINEALES)
+# =============================================================================
+def metodo_gauss_jordan(matriz_texto):
+    A, b, err = _parse_matriz_aumentada(matriz_texto)
+    if err:
+        return err
+
+    n = len(b)
+    M = np.column_stack((A.copy(), b.copy())).astype(float)
+    pasos = [{"titulo": "Matriz aumentada inicial", "matriz": _fmt_matrix(M)}]
+
+    for k in range(n):
+        pivote_fila = k + int(np.argmax(np.abs(M[k:, k])))
+        if abs(M[pivote_fila, k]) < _DIV_ZERO_THRESH:
+            return {
+                "error": True,
+                "titulo": "⚠️ Sistema singular",
+                "mensaje": f"No hay pivote válido en la columna {k + 1}.",
+                "consejo": "Gauss-Jordan requiere una solución única.",
+            }
+        if pivote_fila != k:
+            M[[k, pivote_fila]] = M[[pivote_fila, k]]
+            pasos.append({
+                "titulo": f"Intercambio F{k+1} ↔ F{pivote_fila+1}",
+                "matriz": _fmt_matrix(M),
+            })
+
+        pivote = M[k, k]
+        M[k, :] = M[k, :] / pivote
+        pasos.append({
+            "titulo": f"F{k+1} ← F{k+1} / ({_fmt_num(pivote)})",
+            "matriz": _fmt_matrix(M),
+        })
+
+        for i in range(n):
+            if i == k:
+                continue
+            factor = M[i, k]
+            if abs(factor) < _DIV_ZERO_THRESH:
+                continue
+            M[i, :] -= factor * M[k, :]
+            M[i, k] = 0.0
+            pasos.append({
+                "titulo": f"F{i+1} ← F{i+1} − ({_fmt_num(factor)})F{k+1}",
+                "matriz": _fmt_matrix(M),
+            })
+
+    x = M[:, -1].copy()
+    return _resultado_sistema_lineal(
+        "Gauss-Jordan",
+        x, A, b, pasos, matriz_final=M,
+    )
+
+
+# =============================================================================
+# MÉTODO 13 — FACTORIZACIÓN LU (PA = LU)
+# =============================================================================
+def metodo_lu(matriz_texto):
+    A, b, err = _parse_matriz_aumentada(matriz_texto)
+    if err:
+        return err
+
+    n = len(b)
+    U = A.copy().astype(float)
+    L = np.eye(n, dtype=float)
+    P = np.eye(n, dtype=float)
+    pasos = [{"titulo": "Matrices iniciales", "L": _fmt_matrix(L),
+              "U": _fmt_matrix(U), "P": _fmt_matrix(P)}]
+
+    for k in range(n - 1):
+        pivote_fila = k + int(np.argmax(np.abs(U[k:, k])))
+        if abs(U[pivote_fila, k]) < _DIV_ZERO_THRESH:
+            return {
+                "error": True,
+                "titulo": "⚠️ Matriz singular",
+                "mensaje": f"No hay pivote válido en la columna {k + 1}.",
+                "consejo": "LU requiere una matriz de coeficientes invertible.",
+            }
+        if pivote_fila != k:
+            U[[k, pivote_fila]] = U[[pivote_fila, k]]
+            P[[k, pivote_fila]] = P[[pivote_fila, k]]
+            if k > 0:
+                L[[k, pivote_fila], :k] = L[[pivote_fila, k], :k]
+            pasos.append({
+                "titulo": f"Pivoteo: F{k+1} ↔ F{pivote_fila+1}",
+                "L": _fmt_matrix(L), "U": _fmt_matrix(U), "P": _fmt_matrix(P),
+            })
+
+        for i in range(k + 1, n):
+            factor = U[i, k] / U[k, k]
+            L[i, k] = factor
+            U[i, k:] -= factor * U[k, k:]
+            U[i, k] = 0.0
+            pasos.append({
+                "titulo": f"l{i+1}{k+1} = {_fmt_num(factor)}",
+                "L": _fmt_matrix(L), "U": _fmt_matrix(U), "P": _fmt_matrix(P),
+            })
+
+    if abs(U[-1, -1]) < _DIV_ZERO_THRESH:
+        return {
+            "error": True,
+            "titulo": "⚠️ Matriz singular",
+            "mensaje": "U tiene un pivote final cero.",
+        }
+
+    pb = P @ b
+    y = np.zeros(n, dtype=float)
+    for i in range(n):
+        y[i] = pb[i] - np.dot(L[i, :i], y[:i])
+
+    x = np.zeros(n, dtype=float)
+    for i in range(n - 1, -1, -1):
+        if abs(U[i, i]) < _DIV_ZERO_THRESH:
+            return {"error": True, "titulo": "⚠️ Sustitución LU imposible",
+                    "mensaje": f"U[{i+1},{i+1}] = 0."}
+        x[i] = (y[i] - np.dot(U[i, i+1:n], x[i+1:n])) / U[i, i]
+
+    return _resultado_sistema_lineal(
+        "LU con pivoteo parcial",
+        x, A, b, pasos,
+        extras={
+            "P": _fmt_matrix(P),
+            "L": _fmt_matrix(L),
+            "U": _fmt_matrix(U),
+            "y": _fmt_vec(y),
+            "pb": _fmt_vec(pb),
+        },
+    )
+
+
+# =============================================================================
+# MÉTODO 14 — NEWTON-RAPHSON PARA SISTEMAS NO LINEALES
+# =============================================================================
+def metodo_newton_sistemas(funciones_texto, variables_texto, inicial_texto, tol, max_iter):
+    err = _validar_tol_iter(tol, max_iter)
+    if err:
+        return err
+    tol, max_iter = float(tol), int(float(max_iter))
+
+    variables, err = _parse_variables_sistema(variables_texto)
+    if err:
+        return err
+    exprs, err = _parse_funciones_sistema(funciones_texto, variables)
+    if err:
+        return err
+    x_actual, err = _parse_vector_inicial(inicial_texto, len(variables))
+    if err:
+        return err
+
+    F_sim = sp.Matrix(exprs)
+    J_sim = F_sim.jacobian(variables)
+    try:
+        F_num = sp.lambdify(variables, F_sim, "numpy")
+        J_num = sp.lambdify(variables, J_sim, "numpy")
+    except Exception as exc:
+        return {
+            "error": True,
+            "titulo": "🛑 No se pudo preparar el sistema",
+            "mensaje": str(exc)[:200],
+        }
+
+    resultados = []
+    puntos = [x_actual.copy()]
+
+    for i in range(1, max_iter + 1):
+        try:
+            with np.errstate(all="ignore"):
+                F_raw = np.array(F_num(*x_actual), dtype=complex).reshape(-1)
+                J_raw = np.array(J_num(*x_actual), dtype=complex)
+        except Exception as exc:
+            return {
+                "error": True,
+                "titulo": "🛑 Error de evaluación",
+                "mensaje": f"F/J falló en la iteración {i}: {str(exc)[:160]}",
+                "consejo": "Revisa el dominio de las funciones y la semilla inicial.",
+            }
+
+        if np.max(np.abs(F_raw.imag)) > 1e-8 or np.max(np.abs(J_raw.imag)) > 1e-8:
+            return {
+                "error": True,
+                "titulo": "🛑 Salto al plano complejo",
+                "mensaje": f"El sistema produjo valores complejos en la iteración {i}.",
+                "consejo": "Cambia la semilla o revisa raíces/logaritmos en las funciones.",
+            }
+
+        F_val = F_raw.real.astype(float)
+        J_val = J_raw.real.astype(float)
+        if (not np.all(np.isfinite(F_val))) or (not np.all(np.isfinite(J_val))):
+            return {
+                "error": True,
+                "titulo": "🛑 Dominio matemático",
+                "mensaje": f"F o J tiene NaN/∞ en la iteración {i}.",
+                "consejo": "La semilla está fuera del dominio o cerca de una singularidad.",
+            }
+
+        norma_f = float(np.linalg.norm(F_val, ord=np.inf))
+        if norma_f < tol:
+            resultados.append({
+                "iteracion": i,
+                "x": ", ".join(f"{v}={_fmt_num(val)}" for v, val in zip(variables, x_actual)),
+                "F": _fmt_vec(F_val),
+                "delta": _fmt_vec(np.zeros_like(x_actual)),
+                "x_siguiente": ", ".join(f"{v}={_fmt_num(val)}" for v, val in zip(variables, x_actual)),
+                "norma": _fmt_num(norma_f),
+                "ea": 0,
+            })
+            break
+
+        try:
+            delta = np.linalg.solve(J_val, -F_val)
+        except np.linalg.LinAlgError:
+            return {
+                "error": True,
+                "titulo": "⚠️ Jacobiano singular",
+                "mensaje": f"det(J) ≈ 0 en la iteración {i}; no se puede calcular Δx.",
+                "consejo": "Prueba otra semilla inicial.",
+            }
+
+        x_siguiente = x_actual + delta
+        if (not np.all(np.isfinite(x_siguiente))) or np.linalg.norm(x_siguiente, ord=np.inf) > _DIVERGE_THRESH:
+            return {
+                "error": True,
+                "titulo": "🚀 Divergencia",
+                "mensaje": f"La iteración {i} salió del rango seguro.",
+                "consejo": "Usa una semilla más cercana a la solución.",
+            }
+
+        ea = float(np.linalg.norm(delta, ord=np.inf) /
+                   max(np.linalg.norm(x_siguiente, ord=np.inf), _DIV_ZERO_THRESH) * 100)
+
+        resultados.append({
+            "iteracion": i,
+            "x": ", ".join(f"{v}={_fmt_num(val)}" for v, val in zip(variables, x_actual)),
+            "F": _fmt_vec(F_val),
+            "delta": _fmt_vec(delta),
+            "x_siguiente": ", ".join(f"{v}={_fmt_num(val)}" for v, val in zip(variables, x_siguiente)),
+            "norma": _fmt_num(norma_f),
+            "ea": _fmt_num(ea),
+        })
+
+        x_actual = x_siguiente
+        puntos.append(x_actual.copy())
+        if norma_f < tol or ea < tol:
+            break
+
+    grafica = _grafica_newton_sistemas(exprs, variables, puntos)
+    return {
+        "error": False,
+        "tipo": "newton_sistemas",
+        "variables": [str(v) for v in variables],
+        "funciones": [str(e).replace("**", "^").replace("*", "·") for e in exprs],
+        "jacobiano": [[str(J_sim[i, j]).replace("**", "^").replace("*", "·")
+                       for j in range(J_sim.shape[1])]
+                      for i in range(J_sim.shape[0])],
+        "solucion": _fmt_vec(x_actual),
+        "raiz": ", ".join(f"{v}={_fmt_num(val)}" for v, val in zip(variables, x_actual)),
+        "convergencia": (
+            f"Newton para sistemas finalizó con ||F(x)||∞ = "
+            f"{_fmt_num(float(np.linalg.norm(np.array(F_num(*x_actual), dtype=float).reshape(-1), ord=np.inf)))}."
+        ),
+        "resultados": resultados,
+        "grafica": grafica,
     }
 
 
@@ -2010,6 +2569,68 @@ def bairstow():
             datos = {"error": True, "titulo": "🛑 Error inesperado",
                      "mensaje": str(exc)[:300]}
     return render_template("bairstow.html", datos=datos)
+
+
+@app.route("/gauss", methods=["GET","POST"])
+def gauss():
+    datos = None
+    if request.method == "POST":
+        try:
+            datos = metodo_gauss(request.form["matriz"])
+        except (KeyError, ValueError, OverflowError) as exc:
+            datos = _error_formulario(exc)
+        except Exception as exc:
+            datos = {"error": True, "titulo": "🛑 Error inesperado",
+                     "mensaje": str(exc)[:300]}
+    return render_template("gauss.html", datos=datos)
+
+
+@app.route("/gauss_jordan", methods=["GET","POST"])
+def gauss_jordan():
+    datos = None
+    if request.method == "POST":
+        try:
+            datos = metodo_gauss_jordan(request.form["matriz"])
+        except (KeyError, ValueError, OverflowError) as exc:
+            datos = _error_formulario(exc)
+        except Exception as exc:
+            datos = {"error": True, "titulo": "🛑 Error inesperado",
+                     "mensaje": str(exc)[:300]}
+    return render_template("gauss_jordan.html", datos=datos)
+
+
+@app.route("/lu", methods=["GET","POST"])
+def lu():
+    datos = None
+    if request.method == "POST":
+        try:
+            datos = metodo_lu(request.form["matriz"])
+        except (KeyError, ValueError, OverflowError) as exc:
+            datos = _error_formulario(exc)
+        except Exception as exc:
+            datos = {"error": True, "titulo": "🛑 Error inesperado",
+                     "mensaje": str(exc)[:300]}
+    return render_template("lu.html", datos=datos)
+
+
+@app.route("/newton_sistemas", methods=["GET","POST"])
+def newton_sistemas():
+    datos = None
+    if request.method == "POST":
+        try:
+            datos = metodo_newton_sistemas(
+                request.form["funciones"],
+                request.form["variables"],
+                request.form["inicial"],
+                float(request.form["tol"]),
+                int(request.form["max_iter"]),
+            )
+        except (KeyError, ValueError, OverflowError) as exc:
+            datos = _error_formulario(exc)
+        except Exception as exc:
+            datos = {"error": True, "titulo": "🛑 Error inesperado",
+                     "mensaje": str(exc)[:300]}
+    return render_template("newton_sistemas.html", datos=datos)
 
 
 if __name__ == "__main__":

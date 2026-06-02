@@ -34,7 +34,7 @@
   background: var(--bg-card-hover);
   border-color: var(--card-accent, var(--accent-blue));
   transform: translateY(-2px);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  box-shadow: var(--shadow-hover);
 }
 .method-card:hover::before { opacity: 1; }
 .method-card .card-tag {
@@ -46,6 +46,9 @@
   padding: 2px 7px;
   border-radius: 3px;
   width: fit-content;
+  background: color-mix(in srgb, var(--card-accent, var(--accent-blue)) 14%, transparent) !important;
+  color: var(--card-accent, var(--accent-blue)) !important;
+  border: 1px solid color-mix(in srgb, var(--card-accent, var(--accent-blue)) 28%, transparent);
 }
 .method-card .card-icon {
   font-size: 1.4rem;
@@ -89,7 +92,7 @@
   font-family: 'JetBrains Mono', monospace;
   font-size: 3.5rem;
   font-weight: 700;
-  color: rgba(255,255,255,0.03);
+  color: var(--hero-watermark);
   letter-spacing: 0.2em;
   pointer-events: none;
 }
@@ -138,7 +141,7 @@
 <div class="hero-banner mb-4">
   <span class="status-pill mb-3">
     <span class="status-dot"></span>
-    Defensive Mode · v2.0
+    Suite Numérica · v2.1
   </span>
   <h1>Métodos Numéricos</h1>
   <p>
@@ -147,7 +150,7 @@
   </p>
   <div style="display:flex; gap:20px; flex-wrap:wrap;">
     <div style="text-align:center;">
-      <div style="font-family:'JetBrains Mono',monospace; font-size:1.4rem; font-weight:700; color:var(--accent-blue);">10</div>
+      <div style="font-family:'JetBrains Mono',monospace; font-size:1.4rem; font-weight:700; color:var(--accent-blue);">16</div>
       <div style="font-size:0.7rem; color:var(--text-muted);">Métodos</div>
     </div>
     <div style="text-align:center;">
@@ -243,6 +246,86 @@
     <p class="card-title">Bairstow</p>
     <p class="card-desc">Extrae factores cuadráticos iterativamente para encontrar TODAS las raíces del polinomio a la vez.</p>
     <div class="card-conv">Deflación completa · grado ≥ 3</div>
+  </a>
+</div>
+
+<!-- Sistemas de ecuaciones -->
+<div class="section-label mt-3"><i class="bi bi-grid-3x3-gap"></i> Sistemas de Ecuaciones</div>
+<div class="hero-grid">
+  <a href="/gauss" class="method-card" style="--card-accent: #4f9cf9">
+    <span class="card-tag" style="background:rgba(79,156,249,0.15); color:#4f9cf9;">Directo</span>
+    <div class="card-icon">🔢</div>
+    <p class="card-title">Eliminación de Gauss</p>
+    <p class="card-desc">Triangulariza la matriz aumentada con pivoteo parcial y sustitución regresiva.</p>
+    <div class="card-conv">Solución única · pivoteo parcial</div>
+  </a>
+  <a href="/gauss_jordan" class="method-card" style="--card-accent: #43d9a2">
+    <span class="card-tag" style="background:rgba(67,217,162,0.15); color:#43d9a2;">Directo</span>
+    <div class="card-icon">🧩</div>
+    <p class="card-title">Gauss-Jordan</p>
+    <p class="card-desc">Reduce la matriz hasta forma canónica para leer la solución directamente.</p>
+    <div class="card-conv">RREF · pivoteo parcial</div>
+  </a>
+  <a href="/lu" class="method-card" style="--card-accent: #c792ea">
+    <span class="card-tag" style="background:rgba(199,146,234,0.15); color:#c792ea;">Factorización</span>
+    <div class="card-icon">🧱</div>
+    <p class="card-title">LU</p>
+    <p class="card-desc">Factoriza PA = LU y resuelve con sustitución hacia adelante y hacia atrás.</p>
+    <div class="card-conv">P, L, U · estable con pivoteo</div>
+  </a>
+  <a href="/jacobi" class="method-card" style="--card-accent: #80cbc4">
+    <span class="card-tag" style="background:rgba(128,203,196,0.15); color:#80cbc4;">Iterativo</span>
+    <div class="card-icon">🔁</div>
+    <p class="card-title">Jacobi</p>
+    <p class="card-desc">Actualiza todas las variables usando solo los valores de la iteración anterior.</p>
+    <div class="card-conv">ρ(B) &lt; 1 · vector inicial</div>
+  </a>
+  <a href="/gauss_seidel" class="method-card" style="--card-accent: #ffd580">
+    <span class="card-tag" style="background:rgba(255,213,128,0.15); color:#ffd580;">Iterativo</span>
+    <div class="card-icon">↕️</div>
+    <p class="card-title">Gauss-Seidel</p>
+    <p class="card-desc">Usa cada componente nuevo en cuanto se calcula para acelerar la convergencia.</p>
+    <div class="card-conv">Más rápido que Jacobi en muchos sistemas</div>
+  </a>
+  <a href="/newton_sistemas" class="method-card" style="--card-accent: #f97b4f">
+    <span class="card-tag" style="background:rgba(249,123,79,0.15); color:#f97b4f;">No lineal</span>
+    <div class="card-icon">🎛️</div>
+    <p class="card-title">Newton Sistemas</p>
+    <p class="card-desc">Resuelve F(x)=0 con Jacobiano simbólico y actualización vectorial.</p>
+    <div class="card-conv">J(x)y = F(x) · x nuevo = x − y</div>
+  </a>
+</div>
+
+<!-- Datos e interpolación -->
+<div class="section-label mt-3"><i class="bi bi-bezier2"></i> Datos e Interpolación</div>
+<div class="hero-grid">
+  <a href="/newton_diferencias" class="method-card" style="--card-accent: #80cbc4">
+    <span class="card-tag" style="background:rgba(128,203,196,0.15); color:#80cbc4;">Interpolación</span>
+    <div class="card-icon">🧮</div>
+    <p class="card-title">Newton Dif. Divididas</p>
+    <p class="card-desc">Construye la tabla de diferencias divididas y el polinomio interpolante con datos discretos.</p>
+    <div class="card-conv">P(x) = b₀ + b₁(x−x₀) + ...</div>
+  </a>
+  <a href="/lagrange" class="method-card" style="--card-accent: #ffcb6b">
+    <span class="card-tag" style="background:rgba(255,203,107,0.15); color:#ffcb6b;">Polinomio</span>
+    <div class="card-icon">📈</div>
+    <p class="card-title">Lagrange</p>
+    <p class="card-desc">Construye el polinomio con bases Lᵢ(x) o resolviendo el sistema de Vandermonde.</p>
+    <div class="card-conv">Lagrange clásico · Va = y</div>
+  </a>
+  <a href="/trazadores_cubicos" class="method-card" style="--card-accent: #82aaff">
+    <span class="card-tag" style="background:rgba(130,170,255,0.15); color:#82aaff;">Spline</span>
+    <div class="card-icon">〰️</div>
+    <p class="card-title">Trazadores Cúbicos</p>
+    <p class="card-desc">Genera splines cúbicos naturales por intervalos para una curva suave entre puntos.</p>
+    <div class="card-conv">S, S' y S'' continuas · natural</div>
+  </a>
+  <a href="/regresion_lineal" class="method-card" style="--card-accent: #cf6679">
+    <span class="card-tag" style="background:rgba(207,102,121,0.15); color:#cf6679;">Regresión</span>
+    <div class="card-icon">📉</div>
+    <p class="card-title">Regresión Lineal</p>
+    <p class="card-desc">Ajusta ŷ = b₀ + b₁x por mínimos cuadrados y calcula r, R² y residuales.</p>
+    <div class="card-conv">Mínimos cuadrados · predicción</div>
   </a>
 </div>
 

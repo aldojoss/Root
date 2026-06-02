@@ -1,5 +1,78 @@
 {% extends 'base.html' %}
 {% block contenido %}
+{% set funciones_default = request.form.get('funciones', 'x^2 + y^2 - 4\nx - y') %}
+<style>
+  .system-fn-editor {
+    display: grid;
+    gap: 12px;
+  }
+  .system-fn-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .system-fn-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .system-fn-shell {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background:
+      linear-gradient(90deg, rgba(249,123,79,0.07), rgba(79,156,249,0.04)),
+      var(--bg-input);
+    padding: 14px;
+    display: grid;
+    gap: 10px;
+  }
+  .system-fn-row {
+    display: grid;
+    grid-template-columns: 52px minmax(260px, 1fr) 42px;
+    gap: 8px;
+    align-items: center;
+  }
+  .system-fn-label {
+    align-self: stretch;
+    display: grid;
+    place-items: center;
+    border-radius: var(--radius-sm);
+    background: rgba(249,123,79,0.09);
+    color: var(--accent-orange);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    font-weight: 800;
+  }
+  .system-fn-remove {
+    width: 40px;
+    height: 40px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--ghost-bg);
+    color: var(--text-secondary);
+    display: grid;
+    place-items: center;
+  }
+  .system-fn-remove:hover {
+    color: var(--accent-orange);
+    border-color: rgba(249,123,79,0.45);
+    background: rgba(249,123,79,0.08);
+  }
+  .system-fn-status {
+    min-height: 18px;
+    color: var(--accent-orange);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+  }
+  @media (max-width: 768px) {
+    .system-fn-actions { width: 100%; }
+    .system-fn-actions .btn-nm { flex: 1 1 130px; justify-content: center; }
+    .system-fn-row { grid-template-columns: 46px minmax(190px, 1fr) 40px; }
+  }
+</style>
+
 <div class="page-header">
   <div class="method-icon" style="background:rgba(249,123,79,0.15);">
     <i class="bi bi-bounding-box-circles" style="color:#f97b4f;"></i>
@@ -8,7 +81,7 @@
     <h2 style="color:#f97b4f;">Newton-Raphson para Sistemas</h2>
     <p>
       Resuelve F(x)=0 usando el Jacobiano simbólico. En cada iteración calcula
-      J(xᵢ)Δx = −F(xᵢ) y actualiza xᵢ₊₁ = xᵢ + Δx.
+      J(xᵏ)y = F(xᵏ) y actualiza xᵏ⁺¹ = xᵏ − y.
     </p>
   </div>
 </div>
@@ -19,10 +92,31 @@
     <form method="POST">
       <div class="row g-3 mb-3">
         <div class="col-lg-7">
-          <label class="form-label-nm">Funciones fᵢ(x)=0, una por línea</label>
-          <textarea name="funciones" class="form-control-nm" required
-                    style="min-height:150px; resize:vertical;"
-                    placeholder="x^2 + y^2 - 4&#10;x - y">{{ request.form.get('funciones','') }}</textarea>
+          <div class="system-fn-editor">
+            <script type="application/json" id="system-functions-seed">{{ funciones_default|tojson }}</script>
+            <input type="hidden" name="funciones" id="system-functions-hidden" value="{{ funciones_default|e }}">
+            <div class="system-fn-toolbar">
+              <div>
+                <label class="form-label-nm">Funciones fᵢ(x)=0</label>
+                <div style="font-family:'JetBrains Mono',monospace; font-size:0.72rem; color:var(--text-muted);">
+                  Usa el editor matemático. Escribe solo el lado izquierdo de cada ecuación.
+                </div>
+              </div>
+              <div class="system-fn-actions">
+                <button type="button" class="btn-nm btn-orange-nm" id="system-example">
+                  <i class="bi bi-stars"></i> Ejemplo
+                </button>
+                <button type="button" class="btn-nm btn-ghost-nm" id="system-add">
+                  <i class="bi bi-plus-lg"></i> Función
+                </button>
+                <button type="button" class="btn-nm btn-ghost-nm" id="system-clear">
+                  <i class="bi bi-eraser"></i> Limpiar
+                </button>
+              </div>
+            </div>
+            <div class="system-fn-shell" id="system-functions-list"></div>
+            <div class="system-fn-status" id="system-functions-status" aria-live="polite"></div>
+          </div>
         </div>
         <div class="col-lg-5">
           <label class="form-label-nm">Variables</label>
@@ -56,4 +150,140 @@
 </div>
 
 {% include '_resultados_sistemas.html' %}
+<script>
+(() => {
+  async function bootSystemEditor() {
+    let hasMathField = false;
+    if (window.customElements && customElements.whenDefined) {
+      try {
+        await Promise.race([
+          customElements.whenDefined('math-field'),
+          new Promise((resolve) => setTimeout(resolve, 2500)),
+        ]);
+        hasMathField = Boolean(customElements.get('math-field'));
+      } catch (_err) {
+        hasMathField = false;
+      }
+    }
+
+    const seed = document.getElementById('system-functions-seed');
+    const hidden = document.getElementById('system-functions-hidden');
+    const list = document.getElementById('system-functions-list');
+    const status = document.getElementById('system-functions-status');
+    const form = hidden.closest('form');
+    const example = ['x^2 + y^2 - 4', 'x - y'];
+    let funcs = [];
+
+    function parseLines(text) {
+      return String(text || '')
+        .split(/\n+/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+    }
+
+    try {
+      funcs = parseLines(JSON.parse(seed.textContent || '""'));
+    } catch (_err) {
+      funcs = parseLines(hidden.value);
+    }
+    if (!funcs.length) funcs = [...example];
+
+    function serialize() {
+      hidden.value = funcs.map((value) => String(value).trim()).filter(Boolean).join('\n');
+      return hidden.value;
+    }
+
+    function render() {
+      list.innerHTML = '';
+      funcs.forEach((value, index) => {
+        const row = document.createElement('div');
+        row.className = 'system-fn-row';
+
+        const label = document.createElement('div');
+        label.className = 'system-fn-label';
+        label.textContent = `f${index + 1}`;
+
+        const input = document.createElement(hasMathField ? 'math-field' : 'input');
+        input.classList.add('system-fn-input');
+        input.value = value;
+        if (hasMathField) {
+          input.style.minHeight = '54px';
+          input.style.fontSize = '1.05rem';
+          input.setAttribute('virtual-keyboard-mode', 'manual');
+        } else {
+          input.type = 'text';
+          input.classList.add('form-control-nm');
+          input.placeholder = index === 0 ? 'x^2 + y^2 - 4' : 'x - y';
+        }
+        input.setAttribute('aria-label', `Función ${index + 1}`);
+        input.addEventListener('input', () => {
+          status.textContent = '';
+          funcs[index] = input.value;
+          serialize();
+        });
+
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'system-fn-remove';
+        remove.title = 'Eliminar función';
+        remove.innerHTML = '<i class="bi bi-trash3"></i>';
+        remove.addEventListener('click', () => {
+          status.textContent = '';
+          if (funcs.length <= 1) {
+            funcs[index] = '';
+          } else {
+            funcs.splice(index, 1);
+          }
+          render();
+        });
+
+        row.append(label, input, remove);
+        list.appendChild(row);
+      });
+      serialize();
+    }
+
+    document.getElementById('system-add').addEventListener('click', () => {
+      funcs.push('');
+      render();
+      const inputs = list.querySelectorAll('.system-fn-input');
+      inputs[inputs.length - 1].focus();
+    });
+
+    document.getElementById('system-example').addEventListener('click', () => {
+      funcs = [...example];
+      document.querySelector('input[name="variables"]').value = 'x,y';
+      document.querySelector('input[name="inicial"]').value = '1,1';
+      render();
+    });
+
+    document.getElementById('system-clear').addEventListener('click', () => {
+      funcs = ['', ''];
+      render();
+      const first = list.querySelector('.system-fn-input');
+      if (first) first.focus();
+    });
+
+    form.addEventListener('submit', (event) => {
+      const inputs = [...list.querySelectorAll('.system-fn-input')];
+      const empty = inputs.find((input) => !input.value.trim());
+      if (empty) {
+        status.textContent = 'Completa todas las funciones antes de iterar.';
+        empty.focus();
+        event.preventDefault();
+        return;
+      }
+      serialize();
+    });
+
+    render();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootSystemEditor);
+  } else {
+    bootSystemEditor();
+  }
+})();
+</script>
 {% endblock %}

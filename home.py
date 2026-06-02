@@ -1,5 +1,5 @@
 # =============================================================================
-# home.py  —  Métodos Numéricos  (Nivel Producción / Defensive Programming)
+# home.py  —  Métodos Numéricos  (Nivel Producción / Validaciones Robustas)
 # =============================================================================
 # BUGS CORREGIDOS EN ESTA VERSIÓN:
 #   - Gráficas con ejes negros: forzamos colores en cada figura individualmente
@@ -27,8 +27,14 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-import io, base64, cmath, math
+import io, base64, cmath, math, itertools
 from sympy.parsing.latex import parse_latex
+from sympy.parsing.sympy_parser import (
+    parse_expr,
+    standard_transformations,
+    implicit_multiplication_application,
+    convert_xor,
+)
 
 app = Flask(__name__)
 
@@ -40,6 +46,10 @@ _DIVERGE_THRESH  = 1e15     # FIX: era 1e10, demasiado estricto para algunas fun
 _ROUND_DIGITS    = 8
 _COMPLEX_THRESH  = 1e-4     # FIX: era 1e-6, ahora más tolerante con errores de float
 _MAX_ITER        = 1000     # Límite operativo para evitar respuestas enormes o cuelgues
+_PARSER_TRANSFORMATIONS = standard_transformations + (
+    implicit_multiplication_application,
+    convert_xor,
+)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PALETA DE COLORES
@@ -65,6 +75,12 @@ _COLOR = {
     "horner_newton": "#43d9a2",
     "muller":        "#f97b4f",
     "bairstow":      "#c792ea",
+    "jacobi":        "#80cbc4",
+    "gauss_seidel":  "#ffd580",
+    "newton_diff":   "#80cbc4",
+    "lagrange":      "#ffcb6b",
+    "spline":        "#82aaff",
+    "regresion":     "#cf6679",
     "raiz":          "#43d9a2",
     "raiz_compleja": "#f97b4f",
     "limite":        "#ffd580",
@@ -131,9 +147,7 @@ def parsear_funcion(latex_str):
 
         expr = parse_latex(limpio)
 
-        e_sym = sp.Symbol("e")
-        if e_sym in expr.free_symbols:
-            expr = expr.subs(e_sym, sp.E)
+        expr = _normalizar_constantes_expr(expr)
 
         expr = expr.replace(
             lambda node: getattr(node, "func", None) == sp.log
@@ -169,6 +183,19 @@ def parsear_funcion(latex_str):
             "consejo": "Usa el teclado virtual. Revisa paréntesis y operadores.",
             "link_sympy": "https://docs.sympy.org/latest/tutorials/intro-tutorial/gotchas.html",
         }
+
+
+def _normalizar_constantes_expr(expr):
+    """Convierte símbolos comunes escritos por MathLive a constantes de SymPy."""
+    reemplazos = {
+        sp.Symbol("e"): sp.E,
+        sp.Symbol("E"): sp.E,
+        sp.Symbol("pi"): sp.pi,
+        sp.Symbol("Pi"): sp.pi,
+        sp.Symbol("π"): sp.pi,
+    }
+    return expr.subs({simbolo: valor for simbolo, valor in reemplazos.items()
+                      if simbolo in expr.free_symbols})
 
 
 def _error_parametro(mensaje, consejo=None):
@@ -458,6 +485,145 @@ def _extraer_coeficientes(f_sim, x):
 
 
 # =============================================================================
+# HELPERS — PUNTOS (INTERPOLACIÓN Y REGRESIÓN)
+# =============================================================================
+def _fmt_expr(expr, digits=_ROUND_DIGITS):
+    try:
+        expr = sp.expand(expr)
+        return (str(sp.N(expr, digits))
+                .replace("**", "^")
+                .replace("*", "·")
+                .replace("sqrt", "√"))
+    except Exception:
+        return str(expr).replace("**", "^").replace("*", "·")
+
+
+def _latex_expr(expr, digits=_ROUND_DIGITS, expand=True):
+    try:
+        expr = sp.expand(expr) if expand else sp.simplify(expr)
+        return sp.latex(sp.N(expr, digits))
+    except Exception:
+        try:
+            return sp.latex(expr)
+        except Exception:
+            return str(expr)
+
+
+def _math_inline(expr_latex):
+    return f"\\({expr_latex}\\)"
+
+
+def _parse_x_eval(x_eval, nombre="x a evaluar"):
+    if x_eval is None or str(x_eval).strip() == "":
+        return None, None
+    try:
+        valor = _parse_numero_matriz(x_eval)
+    except Exception:
+        return None, _error_parametro(
+            f"{nombre} debe ser un número real.",
+            "Puedes dejarlo vacío si solo quieres construir el modelo.",
+        )
+    return valor, None
+
+
+def _parse_puntos(texto, min_n=2, max_n=50, ordenar=True):
+    if not texto or not str(texto).strip():
+        return None, _error_parametro(
+            "La tabla de puntos está vacía.",
+            "Ingresa al menos dos pares x y, uno por fila.",
+        )
+
+    puntos = []
+    for raw in str(texto).replace(";", "\n").splitlines():
+        linea = raw.strip()
+        if not linea:
+            continue
+        limpia = (linea.strip("()[]{}")
+                  .replace("|", " ")
+                  .replace(",", " "))
+        partes = limpia.split()
+        if len(partes) != 2:
+            return None, _error_parametro(
+                f"No se pudo leer el punto '{linea}'.",
+                "Usa exactamente dos valores por fila: x y.",
+            )
+        try:
+            x_val = _parse_numero_matriz(partes[0])
+            y_val = _parse_numero_matriz(partes[1])
+        except Exception as exc:
+            return None, _error_parametro(
+                f"No se pudo leer el punto '{linea}': {str(exc)[:120]}",
+                "Usa números reales, fracciones o decimales con punto.",
+            )
+        puntos.append((x_val, y_val))
+
+    if len(puntos) < min_n:
+        return None, _error_parametro(
+            f"Se requieren al menos {min_n} puntos.",
+            "Agrega más pares (x, y) antes de calcular.",
+        )
+    if len(puntos) > max_n:
+        return None, _error_parametro(
+            f"El máximo permitido es {max_n} puntos.",
+            "Reduce la tabla para mantener la respuesta manejable.",
+        )
+
+    puntos_ordenados = sorted(puntos, key=lambda p: p[0]) if ordenar else puntos
+    for i in range(1, len(puntos_ordenados)):
+        if abs(puntos_ordenados[i][0] - puntos_ordenados[i - 1][0]) <= _DIV_ZERO_THRESH:
+            return None, _error_parametro(
+                "Los valores de x deben ser únicos.",
+                "No puede haber dos puntos con la misma abscisa.",
+            )
+    return puntos_ordenados, None
+
+
+def _puntos_para_tabla(puntos):
+    return [
+        {"i": i, "x": _fmt_num(x_val), "y": _fmt_num(y_val)}
+        for i, (x_val, y_val) in enumerate(puntos)
+    ]
+
+
+def _rango_desde_x(xs, margen_rel=0.16):
+    x_min, x_max = min(xs), max(xs)
+    ancho = max(abs(x_max - x_min), 1.0)
+    margen = ancho * margen_rel
+    return x_min - margen, x_max + margen
+
+
+def _evaluar_polinomio(expr, var, x_eval):
+    val = _safe_float(sp.N(expr.subs(var, x_eval)))
+    if val is None or not math.isfinite(val):
+        return None, {
+            "error": True,
+            "titulo": "🛑 Evaluación inválida",
+            "mensaje": f"El modelo produjo un valor no real en x = {_fmt_num(x_eval)}.",
+            "consejo": "Revisa los puntos o usa otro valor de evaluación.",
+        }
+    return val, None
+
+
+def _grafica_interpolacion(puntos, expr, var, color, etiqueta, x_eval=None, y_eval=None):
+    xs = [p[0] for p in puntos]
+    ys = [p[1] for p in puntos]
+    x_min, x_max = _rango_desde_x(xs)
+    f_num = sp.lambdify(var, expr, "numpy")
+
+    fig, ax = _hacer_figura()
+    _trazar_funcion(ax, f_num, x_min, x_max, color, etiqueta)
+    ax.scatter(xs, ys, s=55, color=_COLOR["raiz"], edgecolor=_BG,
+               linewidth=1.0, zorder=5, label="Puntos")
+    if x_eval is not None and y_eval is not None:
+        ax.plot(x_eval, y_eval, "D", color=_COLOR["limite"], ms=8,
+                zorder=6, label=f"P({_fmt_num(x_eval)}) = {_fmt_num(y_eval)}")
+        ax.axvline(x_eval, color=_COLOR["limite"], ls=":", lw=1.1, alpha=0.75)
+    ax.legend(fontsize=8, facecolor=_LEGEND, edgecolor=_AXIS, labelcolor=_TEXT)
+    fig.tight_layout()
+    return _grafica_b64(fig)
+
+
+# =============================================================================
 # HELPERS — SISTEMAS DE ECUACIONES
 # =============================================================================
 def _parse_numero_matriz(token):
@@ -529,6 +695,26 @@ def _fmt_matrix(mat):
     return [[_fmt_num(v) for v in fila] for fila in np.asarray(mat, dtype=float).tolist()]
 
 
+def _latex_num(num):
+    return str(_fmt_num(num)).replace("−", "-")
+
+
+def _latex_vector_numeric(vec):
+    valores = [_latex_num(v) for v in np.asarray(vec, dtype=float).reshape(-1)]
+    return r"\begin{bmatrix}" + r"\\ ".join(valores) + r"\end{bmatrix}"
+
+
+def _latex_matrix_numeric(mat):
+    filas = []
+    for fila in np.asarray(mat, dtype=float):
+        filas.append(" & ".join(_latex_num(v) for v in fila))
+    return r"\begin{bmatrix}" + r"\\ ".join(filas) + r"\end{bmatrix}"
+
+
+def _latex_vector_simbolico(n, nombre="y"):
+    return r"\begin{bmatrix}" + r"\\ ".join(f"{nombre}_{i + 1}" for i in range(n)) + r"\end{bmatrix}"
+
+
 def _residuo_lineal(A, x, b):
     return float(np.linalg.norm(A @ x - b, ord=np.inf))
 
@@ -548,6 +734,221 @@ def _resultado_sistema_lineal(metodo, solucion, A, b, pasos, matriz_final=None, 
         "pasos": pasos,
         "matriz_final": _fmt_matrix(matriz_final) if matriz_final is not None else None,
         "extras": extras,
+    }
+
+
+def _matriz_iteracion_lineal(A, b, metodo):
+    D = np.diag(np.diag(A))
+    if np.any(np.abs(np.diag(A)) < _DIV_ZERO_THRESH):
+        raise ValueError("diagonal_cero")
+
+    if metodo == "jacobi":
+        R = A - D
+        B = -np.linalg.solve(D, R)
+        c = np.linalg.solve(D, b)
+    elif metodo == "gauss_seidel":
+        DL = np.tril(A)
+        U = np.triu(A, 1)
+        B = -np.linalg.solve(DL, U)
+        c = np.linalg.solve(DL, b)
+    else:
+        raise ValueError("método iterativo desconocido")
+
+    if (not np.all(np.isfinite(B))) or (not np.all(np.isfinite(c))):
+        raise ValueError("matriz_iteracion_no_finita")
+    return B, c
+
+
+def _radio_espectral(B):
+    vals = np.linalg.eigvals(B)
+    rho = float(np.max(np.abs(vals))) if len(vals) else 0.0
+    if not math.isfinite(rho):
+        raise ValueError("radio_espectral_no_finito")
+    return rho
+
+
+def _preparar_iterativo(A, b, metodo):
+    n = len(b)
+
+    def _candidato(perm):
+        PA = A[list(perm), :].astype(float)
+        Pb = b[list(perm)].astype(float)
+        B, c = _matriz_iteracion_lineal(PA, Pb, metodo)
+        return PA, Pb, B, c, _radio_espectral(B)
+
+    try:
+        PA, Pb, B, c, rho = _candidato(range(n))
+        if rho < 1.0:
+            return PA, Pb, B, c, rho, False, None
+    except Exception:
+        pass
+
+    if n <= 7:
+        mejor = None
+        mejor_perm = None
+        for perm in itertools.permutations(range(n)):
+            try:
+                cand = _candidato(perm)
+            except Exception:
+                continue
+            if mejor is None or cand[4] < mejor[4]:
+                mejor = cand
+                mejor_perm = perm
+            if cand[4] < 1.0:
+                PA, Pb, B, c, rho = cand
+                return PA, Pb, B, c, rho, tuple(perm) != tuple(range(n)), None
+        if mejor is not None:
+            return (*mejor, tuple(mejor_perm) != tuple(range(n)), None)
+
+    if np.any(np.abs(np.diag(A)) < _DIV_ZERO_THRESH):
+        return None, None, None, None, None, False, {
+            "error": True,
+            "titulo": "⚠️ Diagonal inválida",
+            "mensaje": "Jacobi y Gauss-Seidel requieren coeficientes diagonales no nulos.",
+            "consejo": "Reordena las ecuaciones o usa un método directo como Gauss o LU.",
+        }
+
+    try:
+        PA, Pb, B, c, rho = _candidato(range(n))
+        return PA, Pb, B, c, rho, False, None
+    except Exception as exc:
+        return None, None, None, None, None, False, {
+            "error": True,
+            "titulo": "⚠️ Sistema iterativo inválido",
+            "mensaje": f"No se pudo construir la matriz de iteración: {str(exc)[:120]}",
+            "consejo": "Revisa pivotes diagonales, dependencias entre ecuaciones y escala del sistema.",
+        }
+
+
+def _grafica_convergencia_sistema(resultados, color, label):
+    fig, ax = _hacer_figura()
+    xs = [fila["iteracion"] for fila in resultados]
+    errores = [float(fila["ea_raw"]) for fila in resultados]
+    residuos = [float(fila["residuo_raw"]) for fila in resultados]
+    ax.plot(xs, errores, "o-", color=color, linewidth=2.0, ms=4,
+            label="Error relativo (%)")
+    ax.plot(xs, residuos, "s--", color=_COLOR["raiz"], linewidth=1.8, ms=3,
+            label="Residuo ||Ax-b||∞")
+    ax.set_xlabel("Iteración")
+    ax.set_ylabel("Magnitud")
+    ax.set_title(f"Convergencia de {label}")
+    ax.legend(fontsize=8, facecolor=_LEGEND, edgecolor=_AXIS, labelcolor=_TEXT)
+    fig.tight_layout()
+    return _grafica_b64(fig)
+
+
+def _resultado_sistema_iterativo(metodo, A_original, b_original, A, b, B, c, rho,
+                                 inicial, tol, max_iter, reordenado, color):
+    residuo_inicial = _residuo_lineal(A_original, inicial, b_original)
+    if residuo_inicial <= _DIV_ZERO_THRESH:
+        resultados = [{
+            "iteracion": 0,
+            "x_previo": "---",
+            "x_siguiente": ", ".join(f"x{i+1}={_fmt_num(v)}" for i, v in enumerate(inicial)),
+            "ea": 0,
+            "ea_raw": 0.0,
+            "residuo": _fmt_num(residuo_inicial),
+            "residuo_raw": residuo_inicial,
+        }]
+        grafica = _grafica_convergencia_sistema(resultados, color, metodo)
+        return {
+            "error": False,
+            "tipo": "sistema_iterativo",
+            "metodo": metodo,
+            "solucion": _fmt_vec(inicial),
+            "raiz": ", ".join(f"x{i+1}={_fmt_num(v)}" for i, v in enumerate(inicial)),
+            "convergencia": "La semilla inicial ya satisface el sistema.",
+            "resultados": resultados,
+            "pasos": [],
+            "grafica": grafica,
+            "extras": {
+                "radio_espectral": _fmt_num(rho),
+                "matriz_iteracion": _fmt_matrix(B),
+                "vector_c": _fmt_vec(c),
+                "reordenado": reordenado,
+                "tolerancia": _fmt_num(tol),
+            },
+        }
+
+    if rho >= 1.0:
+        return {
+            "error": True,
+            "titulo": "⚠️ Convergencia no garantizada",
+            "mensaje": (
+                f"El radio espectral de la matriz de iteración es {_fmt_num(rho)} ≥ 1; "
+                f"{metodo} puede divergir para este sistema."
+            ),
+            "consejo": "Reordena o escala las ecuaciones, usa una semilla distinta, o resuelve con Gauss/LU.",
+        }
+
+    x_prev = np.asarray(inicial, dtype=float)
+    resultados = []
+    for i in range(1, max_iter + 1):
+        try:
+            x_next = B @ x_prev + c
+        except Exception as exc:
+            return {
+                "error": True,
+                "titulo": "🛑 Iteración fallida",
+                "mensaje": f"No se pudo calcular la iteración {i}: {str(exc)[:160]}",
+                "consejo": "Revisa la matriz y el vector inicial.",
+            }
+
+        if (not np.all(np.isfinite(x_next))) or np.linalg.norm(x_next, ord=np.inf) > _DIVERGE_THRESH:
+            return {
+                "error": True,
+                "titulo": "🚀 Divergencia",
+                "mensaje": f"La iteración {i} salió del rango seguro.",
+                "consejo": "Usa otra semilla, reordena el sistema o aplica un método directo.",
+            }
+
+        ea = float(np.linalg.norm(x_next - x_prev, ord=np.inf) /
+                   max(np.linalg.norm(x_next, ord=np.inf), _DIV_ZERO_THRESH) * 100)
+        residuo = _residuo_lineal(A_original, x_next, b_original)
+        resultados.append({
+            "iteracion": i,
+            "x_previo": ", ".join(f"x{j+1}={_fmt_num(v)}" for j, v in enumerate(x_prev)),
+            "x_siguiente": ", ".join(f"x{j+1}={_fmt_num(v)}" for j, v in enumerate(x_next)),
+            "ea": _fmt_num(ea),
+            "ea_raw": ea,
+            "residuo": _fmt_num(residuo),
+            "residuo_raw": residuo,
+        })
+
+        x_prev = x_next
+        if ea <= tol or residuo <= _DIV_ZERO_THRESH:
+            grafica = _grafica_convergencia_sistema(resultados, color, metodo)
+            return {
+                "error": False,
+                "tipo": "sistema_iterativo",
+                "metodo": metodo,
+                "solucion": _fmt_vec(x_prev),
+                "raiz": ", ".join(f"x{j+1}={_fmt_num(v)}" for j, v in enumerate(x_prev)),
+                "convergencia": (
+                    f"{metodo} convergió en {i} iteración(es). "
+                    f"Error = {_fmt_num(ea)}%, residuo ||Ax-b||∞ = {_fmt_num(residuo)}, "
+                    f"radio espectral = {_fmt_num(rho)}."
+                ),
+                "resultados": resultados,
+                "pasos": [],
+                "grafica": grafica,
+                "extras": {
+                    "radio_espectral": _fmt_num(rho),
+                    "matriz_iteracion": _fmt_matrix(B),
+                    "vector_c": _fmt_vec(c),
+                    "reordenado": reordenado,
+                    "tolerancia": _fmt_num(tol),
+                },
+            }
+
+    return {
+        "error": True,
+        "titulo": "⚠️ No convergió",
+        "mensaje": (
+            f"{metodo} no alcanzó la tolerancia de {_fmt_num(tol)}% "
+            f"en {max_iter} iteración(es)."
+        ),
+        "consejo": "Aumenta el número de iteraciones, usa otra semilla o prueba un método directo.",
     }
 
 
@@ -608,14 +1009,29 @@ def _parse_expr_sistema(linea, variables):
               .replace(r"\exponentialE", "e")
               .replace(r"\cdot", "*")
               .lower())
-    try:
-        expr = parse_latex(limpio)
-    except Exception:
-        expr = sp.sympify(limpio.replace("^", "**"), locals=local)
+    parece_latex = "\\" in limpio or "{" in limpio or "}" in limpio
+    if parece_latex:
+        try:
+            expr = parse_latex(limpio)
+        except Exception:
+            expr = parse_expr(
+                limpio.replace("^", "**"),
+                local_dict=local,
+                transformations=_PARSER_TRANSFORMATIONS,
+                evaluate=True,
+            )
+    else:
+        try:
+            expr = parse_expr(
+                limpio,
+                local_dict=local,
+                transformations=_PARSER_TRANSFORMATIONS,
+                evaluate=True,
+            )
+        except Exception:
+            expr = parse_latex(limpio)
 
-    e_sym = sp.Symbol("e")
-    if e_sym in expr.free_symbols:
-        expr = expr.subs(e_sym, sp.E)
+    expr = _normalizar_constantes_expr(expr)
     expr = expr.replace(
         lambda node: getattr(node, "func", None) == sp.log
         and len(node.args) == 2 and node.args[1] == sp.E,
@@ -1180,7 +1596,10 @@ def metodo_taylor(latex_str, x0, x_eval, n_terminos):
     terminos = []
     for potencia in range(orden_limite + 1):
         coef = sp.simplify(serie_h.coeff(h, potencia))
-        coef_real = _safe_float(coef.evalf())
+        if coef == 0 or coef.is_zero is True:
+            continue
+
+        coef_real = _safe_float(sp.N(coef, 50))
         if coef_real is None:
             return {
                 "error": True,
@@ -1188,10 +1607,17 @@ def metodo_taylor(latex_str, x0, x_eval, n_terminos):
                 "mensaje": f"El coeficiente de orden {potencia} no es real en x0 = {x0}.",
                 "consejo": "Elige un centro x0 donde la serie sea real.",
             }
-        if abs(coef_real) > _DIV_ZERO_THRESH:
-            terminos.append((potencia, coef, coef_real))
-            if len(terminos) >= n_terminos:
-                break
+        if not math.isfinite(coef_real):
+            return {
+                "error": True,
+                "titulo": "🛑 Coeficiente inválido",
+                "mensaje": f"El coeficiente de orden {potencia} no es finito en x0 = {x0}.",
+                "consejo": "Elige un centro x0 dentro del dominio de la función.",
+            }
+
+        terminos.append((potencia, coef, coef_real))
+        if len(terminos) >= n_terminos:
+            break
 
     if len(terminos) < n_terminos:
         return {
@@ -1223,6 +1649,10 @@ def metodo_taylor(latex_str, x0, x_eval, n_terminos):
         resultados.append({
             "orden":             n,
             "derivada":          termino_str,
+            "derivada_latex":    _math_inline(
+                f"f^{{({n})}}\\left({sp.latex(x0_sym)}\\right) = {sp.latex(sp.N(val_deriv, _ROUND_DIGITS))}"
+            ),
+            "termino_latex":     _math_inline(_latex_expr(termino_simb)),
             "derivada_evaluada": round(val_deriv, _ROUND_DIGITS),
             "termino_calculado": round(termino_val, _ROUND_DIGITS),
             "aproximacion":      round(aprox_acum, _ROUND_DIGITS),
@@ -1254,6 +1684,8 @@ def metodo_taylor(latex_str, x0, x_eval, n_terminos):
         "valor_verdadero": round(val_real, _ROUND_DIGITS),
         "aprox_final":     round(aprox_acum, _ROUND_DIGITS),
         "polinomio_final": pol_str,
+        "funcion_latex":   _math_inline(f"f\\left({sp.latex(var)}\\right) = {_latex_expr(f_sim, expand=False)}"),
+        "polinomio_latex": _math_inline(f"P\\left({sp.latex(var)}\\right) = {_latex_expr(polinomio_taylor)}"),
         "grafica":         _grafica_b64(fig),
     }
 
@@ -2222,7 +2654,59 @@ def metodo_lu(matriz_texto):
 
 
 # =============================================================================
-# MÉTODO 14 — NEWTON-RAPHSON PARA SISTEMAS NO LINEALES
+# MÉTODO 14 — JACOBI (SISTEMAS LINEALES ITERATIVOS)
+# =============================================================================
+def metodo_jacobi(matriz_texto, inicial_texto, tol, max_iter):
+    err = _validar_tol_iter(tol, max_iter)
+    if err:
+        return err
+    tol, max_iter = float(tol), int(float(max_iter))
+
+    A_original, b_original, err = _parse_matriz_aumentada(matriz_texto)
+    if err:
+        return err
+    inicial, err = _parse_vector_inicial(inicial_texto, len(b_original))
+    if err:
+        return err
+
+    A, b, B, c, rho, reordenado, err = _preparar_iterativo(A_original, b_original, "jacobi")
+    if err:
+        return err
+
+    return _resultado_sistema_iterativo(
+        "Jacobi", A_original, b_original, A, b, B, c, rho,
+        inicial, tol, max_iter, reordenado, _COLOR["jacobi"],
+    )
+
+
+# =============================================================================
+# MÉTODO 15 — GAUSS-SEIDEL (SISTEMAS LINEALES ITERATIVOS)
+# =============================================================================
+def metodo_gauss_seidel(matriz_texto, inicial_texto, tol, max_iter):
+    err = _validar_tol_iter(tol, max_iter)
+    if err:
+        return err
+    tol, max_iter = float(tol), int(float(max_iter))
+
+    A_original, b_original, err = _parse_matriz_aumentada(matriz_texto)
+    if err:
+        return err
+    inicial, err = _parse_vector_inicial(inicial_texto, len(b_original))
+    if err:
+        return err
+
+    A, b, B, c, rho, reordenado, err = _preparar_iterativo(A_original, b_original, "gauss_seidel")
+    if err:
+        return err
+
+    return _resultado_sistema_iterativo(
+        "Gauss-Seidel", A_original, b_original, A, b, B, c, rho,
+        inicial, tol, max_iter, reordenado, _COLOR["gauss_seidel"],
+    )
+
+
+# =============================================================================
+# MÉTODO 16 — NEWTON-RAPHSON PARA SISTEMAS NO LINEALES
 # =============================================================================
 def metodo_newton_sistemas(funciones_texto, variables_texto, inicial_texto, tol, max_iter):
     err = _validar_tol_iter(tol, max_iter)
@@ -2254,6 +2738,7 @@ def metodo_newton_sistemas(funciones_texto, variables_texto, inicial_texto, tol,
 
     resultados = []
     puntos = [x_actual.copy()]
+    y_sim_latex = _latex_vector_simbolico(len(variables), "y")
 
     for i in range(1, max_iter + 1):
         try:
@@ -2288,28 +2773,45 @@ def metodo_newton_sistemas(funciones_texto, variables_texto, inicial_texto, tol,
 
         norma_f = float(np.linalg.norm(F_val, ord=np.inf))
         if norma_f < tol:
+            y_cero = np.zeros_like(x_actual)
             resultados.append({
                 "iteracion": i,
                 "x": ", ".join(f"{v}={_fmt_num(val)}" for v, val in zip(variables, x_actual)),
+                "x_vector": _fmt_vec(x_actual),
                 "F": _fmt_vec(F_val),
-                "delta": _fmt_vec(np.zeros_like(x_actual)),
+                "J": _fmt_matrix(J_val),
+                "y": _fmt_vec(y_cero),
+                "delta": _fmt_vec(y_cero),
                 "x_siguiente": ", ".join(f"{v}={_fmt_num(val)}" for v, val in zip(variables, x_actual)),
+                "x_siguiente_vector": _fmt_vec(x_actual),
                 "norma": _fmt_num(norma_f),
                 "ea": 0,
+                "x_latex": _latex_vector_numeric(x_actual),
+                "F_latex": _latex_vector_numeric(F_val),
+                "J_latex": _latex_matrix_numeric(J_val),
+                "sistema_latex": (
+                    f"{_latex_matrix_numeric(J_val)}{y_sim_latex}="
+                    f"{_latex_vector_numeric(F_val)}"
+                ),
+                "y_latex": _latex_vector_numeric(y_cero),
+                "actualizacion_latex": (
+                    f"x^{{({i})}}={_latex_vector_numeric(x_actual)}-"
+                    f"{_latex_vector_numeric(y_cero)}={_latex_vector_numeric(x_actual)}"
+                ),
             })
             break
 
         try:
-            delta = np.linalg.solve(J_val, -F_val)
+            y_correccion = np.linalg.solve(J_val, F_val)
         except np.linalg.LinAlgError:
             return {
                 "error": True,
                 "titulo": "⚠️ Jacobiano singular",
-                "mensaje": f"det(J) ≈ 0 en la iteración {i}; no se puede calcular Δx.",
+                "mensaje": f"det(J) ≈ 0 en la iteración {i}; no se puede resolver J·y = F.",
                 "consejo": "Prueba otra semilla inicial.",
             }
 
-        x_siguiente = x_actual + delta
+        x_siguiente = x_actual - y_correccion
         if (not np.all(np.isfinite(x_siguiente))) or np.linalg.norm(x_siguiente, ord=np.inf) > _DIVERGE_THRESH:
             return {
                 "error": True,
@@ -2318,17 +2820,33 @@ def metodo_newton_sistemas(funciones_texto, variables_texto, inicial_texto, tol,
                 "consejo": "Usa una semilla más cercana a la solución.",
             }
 
-        ea = float(np.linalg.norm(delta, ord=np.inf) /
+        ea = float(np.linalg.norm(y_correccion, ord=np.inf) /
                    max(np.linalg.norm(x_siguiente, ord=np.inf), _DIV_ZERO_THRESH) * 100)
 
         resultados.append({
             "iteracion": i,
             "x": ", ".join(f"{v}={_fmt_num(val)}" for v, val in zip(variables, x_actual)),
+            "x_vector": _fmt_vec(x_actual),
             "F": _fmt_vec(F_val),
-            "delta": _fmt_vec(delta),
+            "J": _fmt_matrix(J_val),
+            "y": _fmt_vec(y_correccion),
+            "delta": _fmt_vec(-y_correccion),
             "x_siguiente": ", ".join(f"{v}={_fmt_num(val)}" for v, val in zip(variables, x_siguiente)),
+            "x_siguiente_vector": _fmt_vec(x_siguiente),
             "norma": _fmt_num(norma_f),
             "ea": _fmt_num(ea),
+            "x_latex": _latex_vector_numeric(x_actual),
+            "F_latex": _latex_vector_numeric(F_val),
+            "J_latex": _latex_matrix_numeric(J_val),
+            "sistema_latex": (
+                f"{_latex_matrix_numeric(J_val)}{y_sim_latex}="
+                f"{_latex_vector_numeric(F_val)}"
+            ),
+            "y_latex": _latex_vector_numeric(y_correccion),
+            "actualizacion_latex": (
+                f"x^{{({i})}}={_latex_vector_numeric(x_actual)}-"
+                f"{_latex_vector_numeric(y_correccion)}={_latex_vector_numeric(x_siguiente)}"
+            ),
         })
 
         x_actual = x_siguiente
@@ -2342,9 +2860,11 @@ def metodo_newton_sistemas(funciones_texto, variables_texto, inicial_texto, tol,
         "tipo": "newton_sistemas",
         "variables": [str(v) for v in variables],
         "funciones": [str(e).replace("**", "^").replace("*", "·") for e in exprs],
+        "funciones_latex": [sp.latex(e) for e in exprs],
         "jacobiano": [[str(J_sim[i, j]).replace("**", "^").replace("*", "·")
                        for j in range(J_sim.shape[1])]
                       for i in range(J_sim.shape[0])],
+        "jacobiano_latex": sp.latex(J_sim),
         "solucion": _fmt_vec(x_actual),
         "raiz": ", ".join(f"{v}={_fmt_num(val)}" for v, val in zip(variables, x_actual)),
         "convergencia": (
@@ -2353,6 +2873,466 @@ def metodo_newton_sistemas(funciones_texto, variables_texto, inicial_texto, tol,
         ),
         "resultados": resultados,
         "grafica": grafica,
+    }
+
+
+# =============================================================================
+# MÉTODO 15 — INTERPOLACIÓN DE NEWTON (DIFERENCIAS DIVIDIDAS)
+# =============================================================================
+def metodo_newton_diferencias(puntos_texto, x_eval=None):
+    puntos, err = _parse_puntos(puntos_texto, min_n=2, max_n=30, ordenar=True)
+    if err:
+        return err
+    x_eval, err = _parse_x_eval(x_eval)
+    if err:
+        return err
+
+    xs = [p[0] for p in puntos]
+    ys = [p[1] for p in puntos]
+    n = len(puntos)
+    tabla_dd = [[None for _ in range(n)] for _ in range(n)]
+    for i, y_val in enumerate(ys):
+        tabla_dd[i][0] = y_val
+
+    for j in range(1, n):
+        for i in range(n - j):
+            denom = xs[i + j] - xs[i]
+            if abs(denom) <= _DIV_ZERO_THRESH:
+                return _error_parametro(
+                    "No se pueden calcular diferencias divididas con valores x repetidos."
+                )
+            tabla_dd[i][j] = (tabla_dd[i + 1][j - 1] - tabla_dd[i][j - 1]) / denom
+
+    x = sp.Symbol("x")
+    polinomio = sp.Integer(0)
+    producto = sp.Integer(1)
+    coeficientes = []
+
+    for orden in range(n):
+        if orden > 0:
+            producto *= (x - xs[orden - 1])
+        coef = tabla_dd[0][orden]
+        termino = coef * producto
+        polinomio += termino
+        coeficientes.append({
+            "orden": orden,
+            "coeficiente": _fmt_num(coef),
+            "termino": _fmt_expr(termino),
+            "termino_latex": _math_inline(_latex_expr(termino)),
+        })
+
+    polinomio = sp.expand(polinomio)
+    valor_eval = None
+    if x_eval is not None:
+        valor_eval, err = _evaluar_polinomio(polinomio, x, x_eval)
+        if err:
+            return err
+
+    headers = ["f[xᵢ]"] + [f"Δ{j}" for j in range(1, n)]
+    tabla = []
+    for i in range(n):
+        tabla.append({
+            "i": i,
+            "x": _fmt_num(xs[i]),
+            "columnas": [
+                _fmt_num(tabla_dd[i][j]) if j <= n - i - 1 else ""
+                for j in range(n)
+            ],
+        })
+
+    grafica = _grafica_interpolacion(
+        puntos, polinomio, x, _COLOR["newton_diff"],
+        "Polinomio de Newton", x_eval, valor_eval,
+    )
+
+    return {
+        "error": False,
+        "tipo": "newton_diferencias",
+        "nombre": "Newton por diferencias divididas",
+        "puntos": _puntos_para_tabla(puntos),
+        "headers": headers,
+        "tabla": tabla,
+        "coeficientes": coeficientes,
+        "polinomio_final": _fmt_expr(polinomio),
+        "polinomio_latex": _math_inline(f"P\\left(x\\right) = {_latex_expr(polinomio)}"),
+        "x_eval": _fmt_num(x_eval) if x_eval is not None else None,
+        "valor_eval": _fmt_num(valor_eval) if valor_eval is not None else None,
+        "raiz": _fmt_num(valor_eval) if valor_eval is not None else _fmt_expr(polinomio),
+        "convergencia": (
+            f"Se construyó un polinomio interpolante de grado máximo {n - 1} "
+            f"con {n} puntos únicos."
+        ),
+        "grafica": grafica,
+        "resultados": tabla,
+    }
+
+
+# =============================================================================
+# MÉTODO 16 — POLINOMIO DE LAGRANGE
+# =============================================================================
+def metodo_lagrange(puntos_texto, x_eval=None, metodo_resolucion="lagrange"):
+    puntos, err = _parse_puntos(puntos_texto, min_n=2, max_n=30, ordenar=True)
+    if err:
+        return err
+    x_eval, err = _parse_x_eval(x_eval)
+    if err:
+        return err
+
+    metodo_resolucion = str(metodo_resolucion or "lagrange").strip().lower()
+    alias_metodos = {
+        "lagrange": "lagrange",
+        "clasico": "lagrange",
+        "clásico": "lagrange",
+        "vandermonde": "vandermonde",
+        "se": "vandermonde",
+        "sistema": "vandermonde",
+    }
+    metodo_resolucion = alias_metodos.get(metodo_resolucion)
+    if metodo_resolucion is None:
+        return _error_parametro(
+            "La forma de resolución de Lagrange no es válida.",
+            "Elige Lagrange clásico o Vandermonde por sistema de ecuaciones.",
+        )
+
+    xs = [p[0] for p in puntos]
+    ys = [p[1] for p in puntos]
+    n = len(puntos)
+    x = sp.Symbol("x")
+    polinomio_lagrange = sp.Integer(0)
+    bases = []
+
+    for i in range(n):
+        Li = sp.Integer(1)
+        for j in range(n):
+            if i != j:
+                Li *= (x - xs[j]) / (xs[i] - xs[j])
+        termino = ys[i] * Li
+        polinomio_lagrange += termino
+        bases.append({
+            "i": i,
+            "x": _fmt_num(xs[i]),
+            "y": _fmt_num(ys[i]),
+            "base": _fmt_expr(Li),
+            "termino": _fmt_expr(termino),
+            "base_latex": _math_inline(f"L_{{{i}}}\\left(x\\right) = {_latex_expr(Li)}"),
+            "termino_latex": _math_inline(_latex_expr(termino)),
+        })
+
+    try:
+        V = sp.Matrix([
+            [sp.Float(xi, 15) ** potencia for potencia in range(n)]
+            for xi in xs
+        ])
+        Y = sp.Matrix([sp.Float(yi, 15) for yi in ys])
+        coefs = V.LUsolve(Y)
+        polinomio_vandermonde = sp.expand(
+            sum(coefs[potencia] * x ** potencia for potencia in range(n))
+        )
+        vandermonde = [[_fmt_num(V[i, j]) for j in range(n)] for i in range(n)]
+        coeficientes = [
+            {"potencia": i, "coeficiente": _fmt_num(coefs[i])}
+            for i in range(n)
+        ]
+        coef_sim_latex = (
+            r"\begin{bmatrix}"
+            + r"\\ ".join(f"a_{i}" for i in range(n))
+            + r"\end{bmatrix}"
+        )
+    except Exception as exc:
+        return {
+            "error": True,
+            "titulo": "⚠️ Matriz de Vandermonde singular",
+            "mensaje": str(exc)[:180],
+            "consejo": "Verifica que todos los valores de x sean distintos.",
+        }
+
+    polinomio_lagrange = sp.expand(polinomio_lagrange)
+    polinomio = polinomio_vandermonde if metodo_resolucion == "vandermonde" else polinomio_lagrange
+
+    valor_eval = None
+    if x_eval is not None:
+        valor_eval, err = _evaluar_polinomio(polinomio, x, x_eval)
+        if err:
+            return err
+
+    metodo_nombre = (
+        "Vandermonde por sistema de ecuaciones"
+        if metodo_resolucion == "vandermonde"
+        else "Lagrange clásico"
+    )
+    grafica = _grafica_interpolacion(
+        puntos, polinomio, x, _COLOR["lagrange"],
+        metodo_nombre, x_eval, valor_eval,
+    )
+
+    return {
+        "error": False,
+        "tipo": "lagrange",
+        "nombre": metodo_nombre,
+        "metodo_resolucion": metodo_resolucion,
+        "puntos": _puntos_para_tabla(puntos),
+        "bases": bases,
+        "vandermonde": vandermonde,
+        "vandermonde_latex": _latex_matrix_numeric(V),
+        "vector_y_latex": _latex_vector_numeric(Y),
+        "coeficientes_latex": _latex_vector_numeric(coefs),
+        "coeficientes_sim_latex": coef_sim_latex,
+        "sistema_vandermonde_latex": (
+            f"{_latex_matrix_numeric(V)}{coef_sim_latex}="
+            f"{_latex_vector_numeric(Y)}"
+        ),
+        "coeficientes": coeficientes,
+        "polinomio_final": _fmt_expr(polinomio),
+        "polinomio_latex": _math_inline(f"P\\left(x\\right) = {_latex_expr(polinomio)}"),
+        "polinomio_lagrange_latex": _math_inline(f"P_L\\left(x\\right) = {_latex_expr(polinomio_lagrange)}"),
+        "polinomio_vandermonde_latex": _math_inline(f"P_V\\left(x\\right) = {_latex_expr(polinomio_vandermonde)}"),
+        "x_eval": _fmt_num(x_eval) if x_eval is not None else None,
+        "valor_eval": _fmt_num(valor_eval) if valor_eval is not None else None,
+        "raiz": _fmt_num(valor_eval) if valor_eval is not None else _fmt_expr(polinomio),
+        "convergencia": (
+            f"{metodo_nombre} generó el polinomio único de grado máximo {n - 1} "
+            f"con {n} puntos. Lagrange y Vandermonde son formas equivalentes."
+        ),
+        "grafica": grafica,
+        "resultados": bases,
+    }
+
+
+# =============================================================================
+# MÉTODO 17 — INTERPOLACIÓN CON TRAZADORES CÚBICOS NATURALES
+# =============================================================================
+def metodo_trazadores_cubicos(puntos_texto, x_eval=None):
+    puntos, err = _parse_puntos(puntos_texto, min_n=3, max_n=40, ordenar=True)
+    if err:
+        return err
+    x_eval, err = _parse_x_eval(x_eval)
+    if err:
+        return err
+
+    xs = np.array([p[0] for p in puntos], dtype=float)
+    ys = np.array([p[1] for p in puntos], dtype=float)
+    n = len(puntos)
+    h = np.diff(xs)
+    if np.any(h <= _DIV_ZERO_THRESH):
+        return _error_parametro(
+            "Los valores de x deben estar estrictamente ordenados y sin repetirse."
+        )
+
+    if x_eval is not None and (x_eval < xs[0] - _DIV_ZERO_THRESH or x_eval > xs[-1] + _DIV_ZERO_THRESH):
+        return _error_parametro(
+            "x a evaluar debe estar dentro del rango de los puntos.",
+            f"Usa un valor entre {_fmt_num(xs[0])} y {_fmt_num(xs[-1])}.",
+        )
+
+    a = ys.copy()
+    alpha = np.zeros(n, dtype=float)
+    for i in range(1, n - 1):
+        alpha[i] = (
+            (3.0 / h[i]) * (a[i + 1] - a[i])
+            - (3.0 / h[i - 1]) * (a[i] - a[i - 1])
+        )
+
+    l = np.ones(n, dtype=float)
+    mu = np.zeros(n, dtype=float)
+    z = np.zeros(n, dtype=float)
+    for i in range(1, n - 1):
+        l[i] = 2.0 * (xs[i + 1] - xs[i - 1]) - h[i - 1] * mu[i - 1]
+        if abs(l[i]) <= _DIV_ZERO_THRESH:
+            return {
+                "error": True,
+                "titulo": "⚠️ Sistema singular",
+                "mensaje": f"No se pudo resolver el trazador en el nodo {i}.",
+                "consejo": "Revisa que los puntos estén bien espaciados.",
+            }
+        mu[i] = h[i] / l[i]
+        z[i] = (alpha[i] - h[i - 1] * z[i - 1]) / l[i]
+
+    c = np.zeros(n, dtype=float)
+    b = np.zeros(n - 1, dtype=float)
+    d = np.zeros(n - 1, dtype=float)
+    for j in range(n - 2, -1, -1):
+        c[j] = z[j] - mu[j] * c[j + 1]
+        b[j] = ((a[j + 1] - a[j]) / h[j]) - (h[j] * (c[j + 1] + 2.0 * c[j]) / 3.0)
+        d[j] = (c[j + 1] - c[j]) / (3.0 * h[j])
+
+    segmentos = []
+    x_sym = sp.Symbol("x")
+    for i in range(n - 1):
+        dx_txt = f"(x - {_fmt_num(xs[i])})"
+        dx_sym = x_sym - sp.Float(xs[i], 15)
+        spline_expr = (
+            sp.Float(a[i], 15)
+            + sp.Float(b[i], 15) * dx_sym
+            + sp.Float(c[i], 15) * dx_sym**2
+            + sp.Float(d[i], 15) * dx_sym**3
+        )
+        segmentos.append({
+            "i": i,
+            "intervalo": f"[{_fmt_num(xs[i])}, {_fmt_num(xs[i + 1])}]",
+            "a": _fmt_num(a[i]),
+            "b": _fmt_num(b[i]),
+            "c": _fmt_num(c[i]),
+            "d": _fmt_num(d[i]),
+            "polinomio": (
+                f"{_fmt_num(a[i])} + {_fmt_num(b[i])}{dx_txt} + "
+                f"{_fmt_num(c[i])}{dx_txt}^2 + {_fmt_num(d[i])}{dx_txt}^3"
+            ),
+            "polinomio_latex": _math_inline(
+                f"S_{{{i}}}\\left(x\\right) = {_latex_expr(spline_expr, expand=False)}"
+            ),
+        })
+
+    valor_eval = None
+    intervalo_eval = None
+    if x_eval is not None:
+        idx = int(np.searchsorted(xs, x_eval, side="right") - 1)
+        idx = max(0, min(idx, n - 2))
+        dx = x_eval - xs[idx]
+        valor_eval = a[idx] + b[idx] * dx + c[idx] * dx**2 + d[idx] * dx**3
+        intervalo_eval = segmentos[idx]["intervalo"]
+
+    fig, ax = _hacer_figura()
+    for i in range(n - 1):
+        x_seg = np.linspace(xs[i], xs[i + 1], 160)
+        dx = x_seg - xs[i]
+        y_seg = a[i] + b[i] * dx + c[i] * dx**2 + d[i] * dx**3
+        ax.plot(
+            x_seg, y_seg, color=_COLOR["spline"], linewidth=2.2,
+            label="Trazador cúbico" if i == 0 else None, zorder=3,
+        )
+    ax.scatter(xs, ys, s=55, color=_COLOR["raiz"], edgecolor=_BG,
+               linewidth=1.0, zorder=5, label="Puntos")
+    if x_eval is not None:
+        ax.plot(x_eval, valor_eval, "D", color=_COLOR["limite"], ms=8,
+                zorder=6, label=f"S({_fmt_num(x_eval)}) = {_fmt_num(valor_eval)}")
+        ax.axvline(x_eval, color=_COLOR["limite"], ls=":", lw=1.1, alpha=0.75)
+    ax.legend(fontsize=8, facecolor=_LEGEND, edgecolor=_AXIS, labelcolor=_TEXT)
+    fig.tight_layout()
+
+    return {
+        "error": False,
+        "tipo": "trazadores_cubicos",
+        "nombre": "Trazadores cúbicos naturales",
+        "puntos": _puntos_para_tabla(puntos),
+        "segmentos": segmentos,
+        "x_eval": _fmt_num(x_eval) if x_eval is not None else None,
+        "valor_eval": _fmt_num(valor_eval) if valor_eval is not None else None,
+        "intervalo_eval": intervalo_eval,
+        "raiz": _fmt_num(valor_eval) if valor_eval is not None else f"{n - 1} segmentos",
+        "convergencia": (
+            "Se resolvió el sistema tridiagonal del trazador natural "
+            "con condición S''(x₀)=S''(xₙ)=0."
+        ),
+        "grafica": _grafica_b64(fig),
+        "resultados": segmentos,
+    }
+
+
+# =============================================================================
+# MÉTODO 18 — REGRESIÓN LINEAL SIMPLE
+# =============================================================================
+def metodo_regresion_lineal(puntos_texto, x_eval=None):
+    puntos, err = _parse_puntos(puntos_texto, min_n=2, max_n=80, ordenar=True)
+    if err:
+        return err
+    x_eval, err = _parse_x_eval(x_eval, "x para predecir")
+    if err:
+        return err
+
+    xs = np.array([p[0] for p in puntos], dtype=float)
+    ys = np.array([p[1] for p in puntos], dtype=float)
+    n = len(puntos)
+    sx = float(np.sum(xs))
+    sy = float(np.sum(ys))
+    sxx = float(np.sum(xs * xs))
+    syy = float(np.sum(ys * ys))
+    sxy = float(np.sum(xs * ys))
+    denom = n * sxx - sx**2
+
+    if abs(denom) <= _DIV_ZERO_THRESH:
+        return _error_parametro(
+            "No se puede ajustar una recta si todos los valores de x son iguales.",
+            "Cambia al menos una abscisa para que exista variación horizontal.",
+        )
+
+    pendiente = (n * sxy - sx * sy) / denom
+    intercepto = (sy - pendiente * sx) / n
+    estimados = intercepto + pendiente * xs
+    residuos = ys - estimados
+    ss_res = float(np.sum(residuos**2))
+    ss_tot = float(np.sum((ys - np.mean(ys))**2))
+    r2 = 1.0 if ss_tot <= _DIV_ZERO_THRESH and ss_res <= _DIV_ZERO_THRESH else (
+        0.0 if ss_tot <= _DIV_ZERO_THRESH else 1.0 - ss_res / ss_tot
+    )
+    r2 = max(min(r2, 1.0), 0.0)
+    denom_r = denom * (n * syy - sy**2)
+    if denom_r > _DIV_ZERO_THRESH:
+        r = (n * sxy - sx * sy) / math.sqrt(denom_r)
+    else:
+        r = 0.0
+    error_estandar = math.sqrt(ss_res / (n - 2)) if n > 2 else 0.0
+
+    valor_eval = None
+    if x_eval is not None:
+        valor_eval = intercepto + pendiente * x_eval
+
+    tabla = []
+    for i in range(n):
+        tabla.append({
+            "i": i,
+            "x": _fmt_num(xs[i]),
+            "y": _fmt_num(ys[i]),
+            "y_estimado": _fmt_num(estimados[i]),
+            "residuo": _fmt_num(residuos[i]),
+        })
+
+    x_min, x_max = _rango_desde_x(xs)
+    x_line = np.linspace(x_min, x_max, 240)
+    y_line = intercepto + pendiente * x_line
+    fig, ax = _hacer_figura()
+    ax.scatter(xs, ys, s=58, color=_COLOR["raiz"], edgecolor=_BG,
+               linewidth=1.0, zorder=5, label="Datos")
+    ax.plot(x_line, y_line, color=_COLOR["regresion"], linewidth=2.3,
+            label="Recta ajustada", zorder=3)
+    if x_eval is not None:
+        ax.plot(x_eval, valor_eval, "D", color=_COLOR["limite"], ms=8,
+                zorder=6, label=f"ŷ({_fmt_num(x_eval)}) = {_fmt_num(valor_eval)}")
+        ax.axvline(x_eval, color=_COLOR["limite"], ls=":", lw=1.1, alpha=0.75)
+    ax.legend(fontsize=8, facecolor=_LEGEND, edgecolor=_AXIS, labelcolor=_TEXT)
+    fig.tight_layout()
+
+    ecuacion = f"ŷ = {_fmt_num(intercepto)} + {_fmt_num(pendiente)}x"
+    x_sym = sp.Symbol("x")
+    recta_expr = sp.Float(intercepto, 15) + sp.Float(pendiente, 15) * x_sym
+    return {
+        "error": False,
+        "tipo": "regresion_lineal",
+        "nombre": "Regresión lineal simple",
+        "puntos": _puntos_para_tabla(puntos),
+        "tabla": tabla,
+        "ecuacion": ecuacion,
+        "ecuacion_latex": _math_inline(f"\\hat{{y}} = {_latex_expr(recta_expr)}"),
+        "pendiente": _fmt_num(pendiente),
+        "intercepto": _fmt_num(intercepto),
+        "r": _fmt_num(r),
+        "r2": _fmt_num(r2),
+        "error_estandar": _fmt_num(error_estandar),
+        "x_eval": _fmt_num(x_eval) if x_eval is not None else None,
+        "valor_eval": _fmt_num(valor_eval) if valor_eval is not None else None,
+        "raiz": _fmt_num(valor_eval) if valor_eval is not None else ecuacion,
+        "convergencia": (
+            f"Recta de mínimos cuadrados ajustada con {n} puntos. "
+            f"R² = {_fmt_num(r2)}."
+        ),
+        "grafica": _grafica_b64(fig),
+        "resultados": tabla,
+        "estadisticas": [
+            {"label": "Pendiente b₁", "value": _fmt_num(pendiente)},
+            {"label": "Intercepto b₀", "value": _fmt_num(intercepto)},
+            {"label": "r", "value": _fmt_num(r)},
+            {"label": "R²", "value": _fmt_num(r2)},
+            {"label": "Error estándar", "value": _fmt_num(error_estandar)},
+        ],
     }
 
 
@@ -2613,6 +3593,44 @@ def lu():
     return render_template("lu.html", datos=datos)
 
 
+@app.route("/jacobi", methods=["GET","POST"])
+def jacobi():
+    datos = None
+    if request.method == "POST":
+        try:
+            datos = metodo_jacobi(
+                request.form["matriz"],
+                request.form["inicial"],
+                float(request.form["tol"]),
+                int(request.form["max_iter"]),
+            )
+        except (KeyError, ValueError, OverflowError) as exc:
+            datos = _error_formulario(exc)
+        except Exception as exc:
+            datos = {"error": True, "titulo": "🛑 Error inesperado",
+                     "mensaje": str(exc)[:300]}
+    return render_template("jacobi.html", datos=datos)
+
+
+@app.route("/gauss_seidel", methods=["GET","POST"])
+def gauss_seidel():
+    datos = None
+    if request.method == "POST":
+        try:
+            datos = metodo_gauss_seidel(
+                request.form["matriz"],
+                request.form["inicial"],
+                float(request.form["tol"]),
+                int(request.form["max_iter"]),
+            )
+        except (KeyError, ValueError, OverflowError) as exc:
+            datos = _error_formulario(exc)
+        except Exception as exc:
+            datos = {"error": True, "titulo": "🛑 Error inesperado",
+                     "mensaje": str(exc)[:300]}
+    return render_template("gauss_seidel.html", datos=datos)
+
+
 @app.route("/newton_sistemas", methods=["GET","POST"])
 def newton_sistemas():
     datos = None
@@ -2631,6 +3649,75 @@ def newton_sistemas():
             datos = {"error": True, "titulo": "🛑 Error inesperado",
                      "mensaje": str(exc)[:300]}
     return render_template("newton_sistemas.html", datos=datos)
+
+
+@app.route("/newton_diferencias", methods=["GET","POST"])
+def newton_diferencias():
+    datos = None
+    if request.method == "POST":
+        try:
+            datos = metodo_newton_diferencias(
+                request.form["puntos"],
+                request.form.get("x_eval", ""),
+            )
+        except (KeyError, ValueError, OverflowError) as exc:
+            datos = _error_formulario(exc)
+        except Exception as exc:
+            datos = {"error": True, "titulo": "🛑 Error inesperado",
+                     "mensaje": str(exc)[:300]}
+    return render_template("newton_diferencias.html", datos=datos)
+
+
+@app.route("/lagrange", methods=["GET","POST"])
+def lagrange():
+    datos = None
+    if request.method == "POST":
+        try:
+            datos = metodo_lagrange(
+                request.form["puntos"],
+                request.form.get("x_eval", ""),
+                request.form.get("metodo_resolucion", "lagrange"),
+            )
+        except (KeyError, ValueError, OverflowError) as exc:
+            datos = _error_formulario(exc)
+        except Exception as exc:
+            datos = {"error": True, "titulo": "🛑 Error inesperado",
+                     "mensaje": str(exc)[:300]}
+    return render_template("lagrange.html", datos=datos)
+
+
+@app.route("/trazadores_cubicos", methods=["GET","POST"])
+def trazadores_cubicos():
+    datos = None
+    if request.method == "POST":
+        try:
+            datos = metodo_trazadores_cubicos(
+                request.form["puntos"],
+                request.form.get("x_eval", ""),
+            )
+        except (KeyError, ValueError, OverflowError) as exc:
+            datos = _error_formulario(exc)
+        except Exception as exc:
+            datos = {"error": True, "titulo": "🛑 Error inesperado",
+                     "mensaje": str(exc)[:300]}
+    return render_template("trazadores_cubicos.html", datos=datos)
+
+
+@app.route("/regresion_lineal", methods=["GET","POST"])
+def regresion_lineal():
+    datos = None
+    if request.method == "POST":
+        try:
+            datos = metodo_regresion_lineal(
+                request.form["puntos"],
+                request.form.get("x_eval", ""),
+            )
+        except (KeyError, ValueError, OverflowError) as exc:
+            datos = _error_formulario(exc)
+        except Exception as exc:
+            datos = {"error": True, "titulo": "🛑 Error inesperado",
+                     "mensaje": str(exc)[:300]}
+    return render_template("regresion_lineal.html", datos=datos)
 
 
 if __name__ == "__main__":

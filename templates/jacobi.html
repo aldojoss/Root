@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% block contenido %}
+<div class="page-header">
+  <div class="method-icon" style="background:rgba(128,203,196,0.15);">
+    <i class="bi bi-arrow-repeat" style="color:#80cbc4;"></i>
+  </div>
+  <div>
+    <h2 style="color:#80cbc4;">Método de Jacobi</h2>
+    <p>
+      Resuelve Ax=b iterando cada variable con los valores de la iteración anterior.
+      Valida pivotes diagonales, radio espectral y divergencia numérica.
+    </p>
+  </div>
+</div>
+
+<div class="card-nm">
+  <div class="card-nm-header"><i class="bi bi-sliders"></i> Sistema e iteración</div>
+  <div class="card-nm-body">
+    <form method="POST">
+      {% set matrix_id = 'jacobi' %}
+      {% set matrix_default = "10 -1 2 6\n-1 11 -1 22\n2 -1 10 -10" %}
+      {% include '_matrix_editor.html' %}
+      <div class="row g-3 mb-3">
+        <div class="col-lg-4">
+          <label class="form-label-nm">Vector inicial x⁽⁰⁾</label>
+          <input name="inicial" class="form-control-nm" required
+                 placeholder="0,0,0" value="{{ request.form.get('inicial','0,0,0') }}">
+        </div>
+        <div class="col-lg-4">
+          <label class="form-label-nm">Tolerancia (%)</label>
+          <input type="number" step="any" name="tol" class="form-control-nm"
+                 required placeholder="0.0001" value="{{ request.form.get('tol','0.0001') }}">
+        </div>
+        <div class="col-lg-4">
+          <label class="form-label-nm">Máx. iteraciones</label>
+          <input type="number" name="max_iter" class="form-control-nm"
+                 required placeholder="100" min="1" max="1000"
+                 value="{{ request.form.get('max_iter','100') }}">
+        </div>
+      </div>
+      <button type="submit" class="btn-nm btn-cyan-nm">
+        <i class="bi bi-calculator"></i> Iterar Jacobi
+      </button>
+    </form>
+  </div>
+</div>
+
+{% include '_resultados_sistemas.html' %}
+{% endblock %}

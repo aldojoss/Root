@@ -1,0 +1,204 @@
+{% set points_default_value = points_default|default("0 1\n1 3\n2 2\n4 5") %}
+{% set points_value = request.form.get('puntos', points_default_value) %}
+
+<div class="points-editor"
+     data-min-points="{{ points_min|default(2) }}"
+     data-max-points="{{ points_max|default(50) }}">
+  <script type="application/json" class="points-seed">{{ points_value|tojson }}</script>
+  <input type="hidden" name="puntos" class="points-hidden" value="{{ points_value|e }}">
+
+  <div class="points-toolbar">
+    <div>
+      <label class="form-label-nm">Puntos (x, y)</label>
+      <div class="points-count">0 puntos</div>
+    </div>
+    <div class="points-actions">
+      <button type="button" class="btn-nm btn-primary-nm points-example">
+        <i class="bi bi-stars"></i> Ejemplo
+      </button>
+      <button type="button" class="btn-nm btn-ghost-nm points-add">
+        <i class="bi bi-plus-lg"></i> Punto
+      </button>
+      <button type="button" class="btn-nm btn-ghost-nm points-clear">
+        <i class="bi bi-eraser"></i> Limpiar
+      </button>
+    </div>
+  </div>
+
+  <div class="points-shell">
+    <div class="points-grid" role="group" aria-label="Editor de puntos"></div>
+  </div>
+  <div class="points-status" aria-live="polite"></div>
+</div>
+
+<script>
+(() => {
+  const defaultExample = [
+    ["0", "1"],
+    ["1", "3"],
+    ["2", "2"],
+    ["4", "5"],
+  ];
+
+  function parsePoints(text) {
+    if (!text) return [];
+    return text
+      .replace(/;/g, "\n")
+      .split(/\n+/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => line.replace(/[()[\]{}|,]/g, " ").split(/\s+/).filter(Boolean))
+      .filter((row) => row.length)
+      .map((row) => [row[0] || "", row[1] || ""]);
+  }
+
+  function initPointsEditor(editor) {
+    if (editor.dataset.ready === "true") return;
+    editor.dataset.ready = "true";
+
+    const minPoints = Number(editor.dataset.minPoints || 2);
+    const maxPoints = Number(editor.dataset.maxPoints || 50);
+    const seed = editor.querySelector(".points-seed");
+    const hidden = editor.querySelector(".points-hidden");
+    const grid = editor.querySelector(".points-grid");
+    const status = editor.querySelector(".points-status");
+    const count = editor.querySelector(".points-count");
+    const form = editor.closest("form");
+
+    let raw = hidden.value;
+    try {
+      raw = JSON.parse(seed.textContent || "\"\"");
+    } catch (_err) {
+      raw = hidden.value;
+    }
+
+    let points = parsePoints(raw);
+    if (points.length < minPoints) points = defaultExample.slice(0, Math.max(minPoints, 2));
+    points = points.slice(0, maxPoints);
+
+    function serialize() {
+      hidden.value = points
+        .map((point) => `${String(point[0]).trim()} ${String(point[1]).trim()}`)
+        .join("\n");
+      count.textContent = `${points.length} punto${points.length === 1 ? "" : "s"}`;
+      return hidden.value;
+    }
+
+    function input(row, col, value) {
+      const cell = document.createElement("input");
+      cell.type = "text";
+      cell.inputMode = "decimal";
+      cell.autocomplete = "off";
+      cell.spellcheck = false;
+      cell.required = true;
+      cell.className = `form-control-nm point-cell point-${col === 0 ? "x" : "y"}`;
+      cell.value = value;
+      cell.placeholder = col === 0 ? "x" : "y";
+      cell.setAttribute("aria-label", `${col === 0 ? "x" : "y"} del punto ${row + 1}`);
+      cell.title = "Número, decimal o fracción";
+      cell.addEventListener("input", () => {
+        status.textContent = "";
+        cell.setCustomValidity("");
+        points[row][col] = cell.value;
+        serialize();
+      });
+      return cell;
+    }
+
+    function label(text, className) {
+      const span = document.createElement("div");
+      span.className = className;
+      span.textContent = text;
+      return span;
+    }
+
+    function render() {
+      grid.innerHTML = "";
+      grid.style.gridTemplateColumns = "52px minmax(96px, 1fr) minmax(96px, 1fr) 42px";
+      grid.appendChild(label("#", "points-head"));
+      grid.appendChild(label("x", "points-head points-x-head"));
+      grid.appendChild(label("y", "points-head points-y-head"));
+      grid.appendChild(label("", "points-head"));
+
+      points.forEach((point, row) => {
+        grid.appendChild(label(String(row + 1), "points-row-label"));
+        grid.appendChild(input(row, 0, point[0]));
+        grid.appendChild(input(row, 1, point[1]));
+
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "point-remove";
+        remove.title = "Eliminar punto";
+        remove.setAttribute("aria-label", `Eliminar punto ${row + 1}`);
+        remove.innerHTML = '<i class="bi bi-trash3"></i>';
+        remove.addEventListener("click", () => {
+          status.textContent = "";
+          if (points.length <= minPoints) {
+            points[row] = ["", ""];
+          } else {
+            points.splice(row, 1);
+          }
+          render();
+        });
+        grid.appendChild(remove);
+      });
+      serialize();
+    }
+
+    editor.querySelector(".points-add").addEventListener("click", () => {
+      status.textContent = "";
+      if (points.length >= maxPoints) {
+        status.textContent = `Máximo ${maxPoints} puntos.`;
+        return;
+      }
+      points.push(["", ""]);
+      render();
+      const cells = editor.querySelectorAll(".point-cell");
+      const target = cells[cells.length - 2];
+      if (target) target.focus();
+    });
+
+    editor.querySelector(".points-example").addEventListener("click", () => {
+      status.textContent = "";
+      points = defaultExample.slice(0, Math.max(minPoints, 2));
+      render();
+    });
+
+    editor.querySelector(".points-clear").addEventListener("click", () => {
+      status.textContent = "";
+      points = Array.from({ length: minPoints }, () => ["", ""]);
+      render();
+      const first = editor.querySelector(".point-cell");
+      if (first) first.focus();
+    });
+
+    if (form) {
+      form.addEventListener("submit", (event) => {
+        const cells = [...editor.querySelectorAll(".point-cell")];
+        cells.forEach((cell) => cell.setCustomValidity(""));
+        const empty = cells.find((cell) => !cell.value.trim());
+        if (empty) {
+          empty.setCustomValidity("Completa este valor.");
+          status.textContent = "Completa todos los puntos antes de calcular.";
+          empty.reportValidity();
+          event.preventDefault();
+          return;
+        }
+        serialize();
+      });
+    }
+
+    render();
+  }
+
+  function bootPointsEditors() {
+    document.querySelectorAll(".points-editor").forEach(initPointsEditor);
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bootPointsEditors);
+  } else {
+    bootPointsEditors();
+  }
+})();
+</script>

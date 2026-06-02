@@ -65,6 +65,13 @@ class NumericMethodsTest(unittest.TestCase):
         self.assertSuccessWithGraph(datos)
         self.assertAlmostEqual(float(datos["aprox_final"]), math.e, places=7)
 
+    def test_taylor_keeps_small_nonzero_terms(self):
+        datos = home.metodo_taylor(r"\sqrt{x}", 25, 36, 10)
+
+        self.assertSuccessWithGraph(datos)
+        self.assertEqual(len(datos["resultados"]), 10)
+        self.assertAlmostEqual(float(datos["aprox_final"]), 6.0, places=4)
+
     def test_destructive_scenarios_are_controlled(self):
         punto_complejo = home.metodo_punto_fijo("x^2+x+1", 0, 0.01, 50)
         punto_suave = home.metodo_punto_fijo("e^{-x}-x", 0, 0.01, 80)
@@ -140,12 +147,30 @@ class NumericMethodsTest(unittest.TestCase):
                 for got, exp in zip(datos["solucion"], expected):
                     self.assertAlmostEqual(float(got), exp, places=6)
 
+    def test_iterative_linear_system_methods_solve_sec(self):
+        matrix = "10 -1 2 6\n-1 11 -1 22\n2 -1 10 -10"
+        expected = [1.0, 2.0, -1.0]
+
+        for solver in [home.metodo_jacobi, home.metodo_gauss_seidel]:
+            with self.subTest(solver=solver.__name__):
+                datos = solver(matrix, "0,0,0", 0.0001, 100)
+                self.assertFalse(datos.get("error"), datos)
+                self.assertEqual(datos.get("tipo"), "sistema_iterativo")
+                self.assertTrue(datos.get("resultados"))
+                self.assertTrue(_png_ok(datos))
+                for got, exp in zip(datos["solucion"], expected):
+                    self.assertAlmostEqual(float(got), exp, places=4)
+
     def test_linear_system_errors_are_controlled(self):
         malformed = home.metodo_gauss("1 2\n3 4")
         singular = home.metodo_gauss("1 1 2\n2 2 4")
+        bad_initial = home.metodo_jacobi("10 1 1\n1 10 1", "0,0,0", 0.01, 20)
+        divergent = home.metodo_gauss_seidel("1 2 3\n1 2 3", "0,0", 0.01, 20)
 
         self.assertTrue(malformed.get("error"))
         self.assertTrue(singular.get("error"))
+        self.assertTrue(bad_initial.get("error"))
+        self.assertTrue(divergent.get("error"))
         self.assertIn(singular.get("titulo"), {"⚠️ Sistema singular", "⚠️ Sustitución imposible"})
 
     def test_newton_systems_solves_and_rejects_singular_jacobian(self):
@@ -182,6 +207,57 @@ class NumericMethodsTest(unittest.TestCase):
         self.assertTrue(singular.get("error"))
         self.assertEqual(singular.get("titulo"), "⚠️ Jacobiano singular")
 
+    def test_newton_systems_accepts_math_constants(self):
+        casos = [
+            "3*x - cos(x*y) - 0.5\n"
+            "x^2 - 81*(y + 0.1)^2 + sin(z) + 1.06\n"
+            "exp(-x*y) + 20*z + (10*pi - 3)/3",
+            r"3x-\cos(xy)-0.5" "\n"
+            r"x^2-81(y+0.1)^2+\sin(z)+1.06" "\n"
+            r"e^{-xy}+20z+\frac{10\pi-3}{3}",
+        ]
+        for funciones in casos:
+            with self.subTest(funciones=funciones):
+                datos = home.metodo_newton_sistemas(
+                    funciones,
+                    "x,y,z",
+                    "0.1,0.1,-0.1",
+                    0.0005,
+                    3,
+                )
+
+                self.assertFalse(datos.get("error"), datos)
+                self.assertEqual(datos.get("tipo"), "newton_sistemas")
+
+    def test_interpolation_and_regression_methods(self):
+        puntos_cuadraticos = "0 1\n1 2\n2 5\n3 10"
+        newton_diff = home.metodo_newton_diferencias(puntos_cuadraticos, "1.5")
+        lagrange = home.metodo_lagrange(puntos_cuadraticos, "1.5")
+        lagrange_vander = home.metodo_lagrange(puntos_cuadraticos, "1.5", "vandermonde")
+        spline = home.metodo_trazadores_cubicos("0 0\n1 1\n2 2\n3 3", "1.5")
+        regresion = home.metodo_regresion_lineal("0 1\n1 3\n2 5\n3 7", "4")
+
+        for datos in [newton_diff, lagrange, lagrange_vander, spline, regresion]:
+            self.assertSuccessWithGraph(datos)
+
+        self.assertAlmostEqual(float(newton_diff["valor_eval"]), 3.25, places=6)
+        self.assertAlmostEqual(float(lagrange["valor_eval"]), 3.25, places=6)
+        self.assertEqual(lagrange["metodo_resolucion"], "lagrange")
+        self.assertAlmostEqual(float(lagrange_vander["valor_eval"]), 3.25, places=6)
+        self.assertEqual(lagrange_vander["metodo_resolucion"], "vandermonde")
+        self.assertAlmostEqual(float(spline["valor_eval"]), 1.5, places=6)
+        self.assertAlmostEqual(float(regresion["valor_eval"]), 9.0, places=6)
+        self.assertAlmostEqual(float(regresion["r2"]), 1.0, places=8)
+
+    def test_data_methods_control_bad_points(self):
+        duplicate = home.metodo_newton_diferencias("0 1\n0 2", "1")
+        spline_out = home.metodo_trazadores_cubicos("0 0\n1 1\n2 0", "3")
+        vertical_regression = home.metodo_regresion_lineal("1 2\n1 3", "")
+
+        self.assertTrue(duplicate.get("error"))
+        self.assertTrue(spline_out.get("error"))
+        self.assertTrue(vertical_regression.get("error"))
+
 
 class FlaskRoutesTest(unittest.TestCase):
     def setUp(self):
@@ -192,7 +268,9 @@ class FlaskRoutesTest(unittest.TestCase):
             "/", "/biseccion", "/falsa_posicion", "/newton", "/secante",
             "/taylor", "/punto_fijo", "/horner", "/horner_newton",
             "/muller", "/bairstow", "/gauss", "/gauss_jordan", "/lu",
-            "/newton_sistemas",
+            "/jacobi", "/gauss_seidel", "/newton_sistemas",
+            "/newton_diferencias", "/lagrange",
+            "/trazadores_cubicos", "/regresion_lineal",
         ]:
             with self.subTest(path=path):
                 response = self.client.get(path)
@@ -200,7 +278,7 @@ class FlaskRoutesTest(unittest.TestCase):
                 self.assertGreater(len(response.data), 1000)
 
     def test_linear_system_routes_use_matrix_editor(self):
-        for path in ["/gauss", "/gauss_jordan", "/lu"]:
+        for path in ["/gauss", "/gauss_jordan", "/lu", "/jacobi", "/gauss_seidel"]:
             with self.subTest(path=path):
                 response = self.client.get(path)
                 html = response.data.decode("utf-8", errors="replace")
@@ -224,6 +302,8 @@ class FlaskRoutesTest(unittest.TestCase):
             "/gauss": {"matriz": "2 1 -1 8\n-3 -1 2 -11\n-2 1 2 -3"},
             "/gauss_jordan": {"matriz": "2 1 -1 8\n-3 -1 2 -11\n-2 1 2 -3"},
             "/lu": {"matriz": "2 1 -1 8\n-3 -1 2 -11\n-2 1 2 -3"},
+            "/jacobi": {"matriz": "10 -1 2 6\n-1 11 -1 22\n2 -1 10 -10", "inicial": "0,0,0", "tol": "0.0001", "max_iter": "100"},
+            "/gauss_seidel": {"matriz": "10 -1 2 6\n-1 11 -1 22\n2 -1 10 -10", "inicial": "0,0,0", "tol": "0.0001", "max_iter": "100"},
             "/newton_sistemas": {
                 "funciones": "x^2+y^2-4\nx-y",
                 "variables": "x,y",
@@ -231,6 +311,10 @@ class FlaskRoutesTest(unittest.TestCase):
                 "tol": "0.0001",
                 "max_iter": "50",
             },
+            "/newton_diferencias": {"puntos": "0 1\n1 2\n2 5\n3 10", "x_eval": "1.5"},
+            "/lagrange": {"puntos": "0 1\n1 2\n2 5\n3 10", "x_eval": "1.5", "metodo_resolucion": "vandermonde"},
+            "/trazadores_cubicos": {"puntos": "0 0\n1 1\n2 2\n3 3", "x_eval": "1.5"},
+            "/regresion_lineal": {"puntos": "0 1\n1 3\n2 5\n3 7", "x_eval": "4"},
         }
 
         for path, data in forms.items():

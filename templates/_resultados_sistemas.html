@@ -42,8 +42,10 @@
           <div class="card-nm">
             <div class="card-nm-header"><i class="bi bi-list-check"></i> F(x)=0</div>
             <div class="card-nm-body">
-              {% for f in datos.funciones %}
-                <div class="poly-box mb-2">f{{ loop.index }} = {{ f }}</div>
+              {% for f in datos.funciones_latex %}
+                <div class="math-box compact mb-2">
+                  \(f_{{ loop.index }}(x) = {{ f|safe }}\)
+                </div>
               {% endfor %}
             </div>
           </div>
@@ -51,18 +53,138 @@
         <div class="col-lg-6">
           <div class="card-nm">
             <div class="card-nm-header"><i class="bi bi-grid-3x3"></i> J(x)</div>
+            <div class="card-nm-body">
+              <div class="math-box">
+                \(J(x) = {{ datos.jacobiano_latex|safe }}\)
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="alert-nm success">
+        <div class="alert-icon"><i class="bi bi-check2-circle"></i></div>
+        <div>
+          <h5>Forma usada</h5>
+          <p>
+            En cada iteración se resuelve \(J(x^{(k)})y = F(x^{(k)})\)
+            y después se actualiza \(x^{(k+1)} = x^{(k)} - y\).
+          </p>
+        </div>
+      </div>
+
+      <div class="section-label"><i class="bi bi-table"></i> Iteraciones</div>
+      <div class="card-nm" style="overflow-x:auto;">
+        <table class="table-nm">
+          <thead>
+            <tr>
+              <th>#</th><th>xᵏ</th><th>F(xᵏ)</th><th>y</th><th>xᵏ⁺¹ = xᵏ - y</th><th>||F||∞</th><th>Error (%)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for fila in datos.resultados %}
+              <tr>
+                <td class="cell-iter">{{ fila.iteracion }}</td>
+                <td>{{ fila.x }}</td>
+                <td>{{ fila.F }}</td>
+                <td class="cell-blue">{{ fila.y }}</td>
+                <td class="cell-result">{{ fila.x_siguiente }}</td>
+                <td>{{ fila.norma }}</td>
+                <td class="cell-error">{{ fila.ea }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="section-label"><i class="bi bi-journal-text"></i> Desarrollo por iteración</div>
+      {% for fila in datos.resultados %}
+        <div class="factor-card">
+          <div class="factor-card-header">
+            <span class="factor-title">Iteración {{ fila.iteracion }}</span>
+            <span class="iter-badge">||F||∞ = {{ fila.norma }}</span>
+          </div>
+          <div class="factor-card-body">
+            <div class="row g-3">
+              <div class="col-lg-5">
+                <div class="card-nm" style="margin-bottom:0;">
+                  <div class="card-nm-header"><i class="bi bi-calculator"></i> Evaluar en xᵏ</div>
+                  <div class="card-nm-body">
+                    <div class="math-box compact mb-2">
+                      \(x^{({{ fila.iteracion - 1 }})} = {{ fila.x_latex|safe }}\)
+                    </div>
+                    <div class="math-box compact mb-2">
+                      \(F(x^{({{ fila.iteracion - 1 }})}) = {{ fila.F_latex|safe }}\)
+                    </div>
+                    <div class="math-box compact">
+                      \(J(x^{({{ fila.iteracion - 1 }})}) = {{ fila.J_latex|safe }}\)
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-lg-7">
+                <div class="card-nm" style="margin-bottom:12px;">
+                  <div class="card-nm-header"><i class="bi bi-1-circle"></i> Paso 1: resolver el SEL</div>
+                  <div class="card-nm-body">
+                    <div class="math-box mb-2">
+                      \({{ fila.sistema_latex|safe }}\)
+                    </div>
+                    <div class="math-box compact">
+                      \(y = {{ fila.y_latex|safe }}\)
+                    </div>
+                  </div>
+                </div>
+                <div class="card-nm" style="margin-bottom:0;">
+                  <div class="card-nm-header"><i class="bi bi-2-circle"></i> Paso 2: nueva aproximación</div>
+                  <div class="card-nm-body">
+                    <div class="math-box">
+                      \({{ fila.actualizacion_latex|safe }}\)
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    {% elif datos.tipo == 'sistema_iterativo' %}
+      <div class="section-label"><i class="bi bi-arrow-repeat"></i> Forma iterativa</div>
+      <div class="row g-3 mb-4">
+        <div class="col-lg-8">
+          <div class="card-nm">
+            <div class="card-nm-header"><i class="bi bi-grid-3x3"></i> Matriz de iteración B</div>
             <div class="card-nm-body" style="overflow-x:auto;">
               <table class="table-nm">
                 <tbody>
-                  {% for fila in datos.jacobiano %}
+                  {% for fila in datos.extras.matriz_iteracion %}
                     <tr>
                       {% for c in fila %}
-                        <td class="cell-purple">{{ c }}</td>
+                        <td class="cell-blue">{{ c }}</td>
                       {% endfor %}
                     </tr>
                   {% endfor %}
                 </tbody>
               </table>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="card-nm">
+            <div class="card-nm-header"><i class="bi bi-list-ol"></i> Vector c</div>
+            <div class="card-nm-body">
+              <div class="root-chips" style="margin:0 0 12px">
+                {% for val in datos.extras.vector_c %}
+                  <span class="root-chip real">c<sub>{{ loop.index }}</sub> = {{ val }}</span>
+                {% endfor %}
+              </div>
+              <p style="font-size:0.75rem; color:var(--text-muted); margin:0;">
+                ρ(B) = {{ datos.extras.radio_espectral }} · tol = {{ datos.extras.tolerancia }}%
+              </p>
+              {% if datos.extras.reordenado %}
+                <p style="font-size:0.75rem; color:var(--accent-yellow); margin:8px 0 0;">
+                  <i class="bi bi-shuffle"></i> Se reordenaron ecuaciones para mejorar la convergencia.
+                </p>
+              {% endif %}
             </div>
           </div>
         </div>
@@ -73,19 +195,17 @@
         <table class="table-nm">
           <thead>
             <tr>
-              <th>#</th><th>xᵢ</th><th>F(xᵢ)</th><th>Δx</th><th>xᵢ₊₁</th><th>||F||∞</th><th>Error (%)</th>
+              <th>#</th><th>x anterior</th><th>x nuevo</th><th>Error (%)</th><th>Residuo</th>
             </tr>
           </thead>
           <tbody>
             {% for fila in datos.resultados %}
               <tr>
                 <td class="cell-iter">{{ fila.iteracion }}</td>
-                <td>{{ fila.x }}</td>
-                <td>{{ fila.F }}</td>
-                <td class="cell-blue">{{ fila.delta }}</td>
+                <td>{{ fila.x_previo }}</td>
                 <td class="cell-result">{{ fila.x_siguiente }}</td>
-                <td>{{ fila.norma }}</td>
                 <td class="cell-error">{{ fila.ea }}</td>
+                <td class="cell-blue">{{ fila.residuo }}</td>
               </tr>
             {% endfor %}
           </tbody>

@@ -66,10 +66,26 @@
       </div>
     </div>
 
-    {# ── Polinomio de Taylor ─────────────────────────────────────────────── #}
-    {% if datos.tipo == 'taylor' and datos.polinomio_final %}
-      <div class="section-label"><i class="bi bi-braces"></i> Polinomio P(x)</div>
-      <div class="poly-box mb-4">{{ datos.polinomio_final }}</div>
+    {# ── Desarrollo de Taylor ─────────────────────────────────────────────── #}
+    {% if datos.tipo == 'taylor' %}
+      {% if datos.funcion_latex %}
+        <div class="section-label"><i class="bi bi-function"></i> Función original</div>
+        <div class="math-box mb-4">{{ datos.funcion_latex | safe }}</div>
+      {% endif %}
+
+      <div class="section-label"><i class="bi bi-layers"></i> Valores de derivadas en x₀</div>
+      <div class="card-nm mb-4">
+        <div class="card-nm-body">
+          {% for fila in datos.resultados %}
+            <div class="math-box compact mb-2">{{ fila.derivada_latex | safe }}</div>
+          {% endfor %}
+        </div>
+      </div>
+
+      {% if datos.polinomio_latex %}
+        <div class="section-label"><i class="bi bi-braces"></i> Polinomio P(x)</div>
+        <div class="math-box mb-4">{{ datos.polinomio_latex | safe }}</div>
+      {% endif %}
     {% endif %}
 
     {# ── Gráfica ─────────────────────────────────────────────────────────── #}
@@ -146,7 +162,7 @@
             <tr>
               {% if datos.tipo == 'taylor' %}
                 <th>Orden n</th>
-                <th>Término de P(x)</th>
+                <th>Derivada</th>
                 <th>f⁽ⁿ⁾(x₀)</th>
                 <th>Término</th>
                 <th>Aprox. acumulada</th>
@@ -177,11 +193,11 @@
               <tr>
                 {% if datos.tipo == 'taylor' %}
                   <td class="cell-iter">{{ fila.orden }}</td>
-                  <td class="cell-yellow" style="text-align:left; font-size:0.72rem;">
-                    {{ fila.derivada }}
+                  <td class="math-cell">
+                    {{ fila.derivada_latex | safe }}
                   </td>
                   <td>{{ fila.derivada_evaluada }}</td>
-                  <td>{{ fila.termino_calculado }}</td>
+                  <td class="math-cell">{{ fila.termino_latex | safe }}</td>
                   <td class="cell-result">{{ fila.aproximacion }}</td>
                   <td class="cell-error">{{ fila.et }}</td>
                 {% else %}

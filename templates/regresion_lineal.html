@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block contenido %}
+<div class="page-header">
+  <div class="method-icon" style="background:rgba(207,102,121,0.15);">
+    <i class="bi bi-graph-up-arrow" style="color:#cf6679;"></i>
+  </div>
+  <div>
+    <h2 style="color:#cf6679;">Regresión Lineal Simple</h2>
+    <p>
+      Ajusta la recta ŷ = b₀ + b₁x por mínimos cuadrados y calcula r, R²,
+      error estándar y residuales.
+    </p>
+  </div>
+</div>
+
+<div class="card-nm">
+  <div class="card-nm-header"><i class="bi bi-sliders"></i> Datos de regresión</div>
+  <div class="card-nm-body">
+    <form method="POST">
+      {% set points_min = 2 %}
+      {% set points_max = 80 %}
+      {% set points_default = "1 2\n2 3\n3 5\n4 4\n5 6" %}
+      {% include '_points_editor.html' %}
+      <div class="row g-3 mb-3">
+        <div class="col-md-4">
+          <label class="form-label-nm">Predecir en x</label>
+          <input type="number" step="any" name="x_eval" class="form-control-nm"
+                 placeholder="6" value="{{ request.form.get('x_eval','') }}">
+        </div>
+      </div>
+      <button type="submit" class="btn-nm btn-rose-nm">
+        <i class="bi bi-calculator"></i> Ajustar recta
+      </button>
+    </form>
+  </div>
+</div>
+
+{% include '_resultados_datos.html' %}
+{% endblock %}

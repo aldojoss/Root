@@ -1,0 +1,246 @@
+{% if datos %}
+  {% if datos.error %}
+    <div class="alert-nm warning">
+      <div class="alert-icon">⚠️</div>
+      <div>
+        <h5>{{ datos.titulo }}</h5>
+        <p>{{ datos.mensaje }}</p>
+        {% if datos.consejo %}
+          <p class="tip"><i class="bi bi-lightbulb"></i> {{ datos.consejo }}</p>
+        {% endif %}
+      </div>
+    </div>
+  {% else %}
+    <div class="result-grid">
+      <div class="result-box success">
+        <div class="label">
+          {% if datos.tipo == 'regresion_lineal' %}Recta ajustada
+          {% elif datos.tipo == 'trazadores_cubicos' %}Trazador
+          {% else %}Polinomio{% endif %}
+        </div>
+        {% if datos.tipo == 'regresion_lineal' %}
+          <div class="math-box compact">{{ datos.ecuacion_latex | safe }}</div>
+        {% elif datos.tipo == 'trazadores_cubicos' %}
+          <div class="value">{{ datos.segmentos|length }} segmentos</div>
+        {% else %}
+          <div class="math-box compact">{{ datos.polinomio_latex | safe }}</div>
+        {% endif %}
+      </div>
+
+      <div class="result-box info">
+        <div class="label">
+          {% if datos.x_eval is not none %}Evaluación{% else %}Control numérico{% endif %}
+        </div>
+        {% if datos.x_eval is not none %}
+          <div class="value">{{ datos.valor_eval }}</div>
+          <div style="font-family:'JetBrains Mono',monospace; font-size:0.72rem; color:var(--text-muted); margin-top:4px;">
+            x = {{ datos.x_eval }}{% if datos.intervalo_eval %} · {{ datos.intervalo_eval }}{% endif %}
+          </div>
+        {% else %}
+          <div class="value small" style="color:var(--text-secondary); font-size:0.82rem; line-height:1.5;">
+            {{ datos.convergencia }}
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if datos.estadisticas %}
+      <div class="stats-strip">
+        {% for stat in datos.estadisticas %}
+          <div class="mini-stat">
+            <div class="label">{{ stat.label }}</div>
+            <div class="value">{{ stat.value }}</div>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    {% if datos.grafica %}
+      <div class="section-label"><i class="bi bi-graph-up"></i> Análisis visual</div>
+      <div class="plot-wrap mb-4">
+        <img src="data:image/png;base64,{{ datos.grafica }}" alt="Gráfica del método" />
+      </div>
+    {% endif %}
+
+    {% if datos.polinomio_final and datos.tipo != 'regresion_lineal' %}
+      <div class="section-label"><i class="bi bi-braces"></i> Expresión final</div>
+      <div class="math-box mb-4">{{ datos.polinomio_latex | safe }}</div>
+    {% endif %}
+
+    <div class="section-label"><i class="bi bi-ui-checks-grid"></i> Puntos usados</div>
+    <div class="card-nm mb-4" style="overflow-x:auto;">
+      <table class="table-nm">
+        <thead>
+          <tr><th>#</th><th>x</th><th>y</th></tr>
+        </thead>
+        <tbody>
+          {% for p in datos.puntos %}
+            <tr>
+              <td class="cell-iter">{{ p.i }}</td>
+              <td class="cell-blue">{{ p.x }}</td>
+              <td class="cell-result">{{ p.y }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if datos.tipo == 'newton_diferencias' %}
+      <div class="section-label"><i class="bi bi-diagram-2"></i> Diferencias divididas</div>
+      <div class="card-nm mb-4" style="overflow-x:auto;">
+        <table class="table-nm">
+          <thead>
+            <tr>
+              <th>#</th><th>xᵢ</th>
+              {% for h in datos.headers %}
+                <th>{{ h }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for fila in datos.tabla %}
+              <tr>
+                <td class="cell-iter">{{ fila.i }}</td>
+                <td class="cell-blue">{{ fila.x }}</td>
+                {% for col in fila.columnas %}
+                  <td class="{% if loop.index0 == 0 %}cell-result{% else %}cell-purple{% endif %}">{{ col }}</td>
+                {% endfor %}
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="section-label"><i class="bi bi-list-ol"></i> Coeficientes de Newton</div>
+      <div class="card-nm" style="overflow-x:auto;">
+        <table class="table-nm">
+          <thead>
+            <tr><th>Orden</th><th>Coeficiente</th><th>Término acumulado</th></tr>
+          </thead>
+          <tbody>
+            {% for c in datos.coeficientes %}
+              <tr>
+                <td class="cell-iter">{{ c.orden }}</td>
+                <td class="cell-result">{{ c.coeficiente }}</td>
+                <td class="math-cell">{{ c.termino_latex | safe }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% elif datos.tipo == 'lagrange' %}
+      {% if datos.metodo_resolucion == 'lagrange' %}
+        <div class="section-label"><i class="bi bi-bezier"></i> Bases Lᵢ(x)</div>
+        <div class="card-nm mb-4" style="overflow-x:auto;">
+          <table class="table-nm">
+            <thead>
+              <tr><th>i</th><th>xᵢ</th><th>yᵢ</th><th>Lᵢ(x)</th><th>yᵢLᵢ(x)</th></tr>
+            </thead>
+            <tbody>
+              {% for b in datos.bases %}
+                <tr>
+                  <td class="cell-iter">{{ b.i }}</td>
+                  <td class="cell-blue">{{ b.x }}</td>
+                  <td class="cell-result">{{ b.y }}</td>
+                  <td class="math-cell">{{ b.base_latex | safe }}</td>
+                  <td class="math-cell">{{ b.termino_latex | safe }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="section-label"><i class="bi bi-grid-3x3"></i> Sistema de Vandermonde</div>
+        <div class="card-nm mb-4">
+          <div class="card-nm-header"><i class="bi bi-braces"></i> Va = y</div>
+          <div class="card-nm-body">
+            <div class="math-box mb-3">
+              \({{ datos.sistema_vandermonde_latex|safe }}\)
+            </div>
+            <div class="math-box compact">
+              \(a = {{ datos.coeficientes_latex|safe }}\)
+            </div>
+          </div>
+        </div>
+      {% endif %}
+
+      <div class="section-label"><i class="bi bi-list-ol"></i> Coeficientes del polinomio</div>
+      <div class="row g-3">
+        <div class="col-lg-7">
+          <div class="card-nm" style="overflow-x:auto;">
+            <div class="card-nm-header"><i class="bi bi-grid-3x3"></i> Matriz V</div>
+            <table class="table-nm">
+              <tbody>
+                {% for fila in datos.vandermonde %}
+                  <tr>
+                    {% for c in fila %}
+                      <td class="cell-blue">{{ c }}</td>
+                    {% endfor %}
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="col-lg-5">
+          <div class="card-nm" style="overflow-x:auto;">
+            <div class="card-nm-header"><i class="bi bi-list-ol"></i> Vector a</div>
+            <table class="table-nm">
+              <thead><tr><th>Término</th><th>Coef.</th></tr></thead>
+              <tbody>
+                {% for c in datos.coeficientes %}
+                  <tr>
+                    <td class="cell-iter">a{{ c.potencia }} · x^{{ c.potencia }}</td>
+                    <td class="cell-result">{{ c.coeficiente }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    {% elif datos.tipo == 'trazadores_cubicos' %}
+      <div class="section-label"><i class="bi bi-activity"></i> Segmentos cúbicos</div>
+      <div class="card-nm" style="overflow-x:auto;">
+        <table class="table-nm">
+          <thead>
+            <tr><th>i</th><th>Intervalo</th><th>a</th><th>b</th><th>c</th><th>d</th><th>Sᵢ(x)</th></tr>
+          </thead>
+          <tbody>
+            {% for s in datos.segmentos %}
+              <tr>
+                <td class="cell-iter">{{ s.i }}</td>
+                <td class="cell-blue">{{ s.intervalo }}</td>
+                <td>{{ s.a }}</td>
+                <td>{{ s.b }}</td>
+                <td>{{ s.c }}</td>
+                <td>{{ s.d }}</td>
+                <td class="math-cell">{{ s.polinomio_latex | safe }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% elif datos.tipo == 'regresion_lineal' %}
+      <div class="section-label"><i class="bi bi-table"></i> Ajuste y residuales</div>
+      <div class="card-nm" style="overflow-x:auto;">
+        <table class="table-nm">
+          <thead>
+            <tr><th>#</th><th>x</th><th>y</th><th>ŷ</th><th>Residual</th></tr>
+          </thead>
+          <tbody>
+            {% for fila in datos.tabla %}
+              <tr>
+                <td class="cell-iter">{{ fila.i }}</td>
+                <td>{{ fila.x }}</td>
+                <td class="cell-result">{{ fila.y }}</td>
+                <td class="cell-blue">{{ fila.y_estimado }}</td>
+                <td class="cell-error">{{ fila.residuo }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+  {% endif %}
+{% endif %}

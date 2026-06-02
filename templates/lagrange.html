@@ -1,0 +1,105 @@
+{% extends 'base.html' %}
+{% block contenido %}
+<style>
+  .lagrange-mode-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+  .lagrange-mode {
+    position: relative;
+  }
+  .lagrange-mode input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .lagrange-mode span {
+    min-height: 74px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-input);
+    color: var(--text-secondary);
+    display: grid;
+    gap: 5px;
+    padding: 12px 14px;
+    cursor: pointer;
+    transition: all var(--transition);
+  }
+  .lagrange-mode strong {
+    color: var(--text-primary);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .lagrange-mode small {
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    line-height: 1.4;
+  }
+  .lagrange-mode input:checked + span {
+    border-color: rgba(255,203,107,0.65);
+    background: rgba(255,203,107,0.09);
+    box-shadow: 0 0 0 3px rgba(255,203,107,0.10);
+  }
+</style>
+<div class="page-header">
+  <div class="method-icon" style="background:rgba(255,203,107,0.15);">
+    <i class="bi bi-bezier" style="color:#ffcb6b;"></i>
+  </div>
+  <div>
+    <h2 style="color:#ffcb6b;">Polinomio de Lagrange</h2>
+    <p>
+      Construye el mismo polinomio interpolante por bases Lᵢ(x) o resolviendo
+      el sistema de Vandermonde Va = y.
+    </p>
+  </div>
+</div>
+
+<div class="card-nm">
+  <div class="card-nm-header"><i class="bi bi-sliders"></i> Datos de interpolación</div>
+  <div class="card-nm-body">
+    <form method="POST">
+      {% set points_min = 2 %}
+      {% set points_max = 30 %}
+      {% set points_default = "-1 2\n0 1\n2 5\n3 10" %}
+      {% include '_points_editor.html' %}
+      {% set metodo_actual = request.form.get('metodo_resolucion', 'lagrange') %}
+      <label class="form-label-nm">Forma de resolución</label>
+      <div class="lagrange-mode-grid">
+        <label class="lagrange-mode">
+          <input type="radio" name="metodo_resolucion" value="lagrange"
+                 {% if metodo_actual != 'vandermonde' %}checked{% endif %}>
+          <span>
+            <strong><i class="bi bi-bezier"></i> Lagrange clásico</strong>
+            <small>P(x) = Σ yᵢLᵢ(x)</small>
+          </span>
+        </label>
+        <label class="lagrange-mode">
+          <input type="radio" name="metodo_resolucion" value="vandermonde"
+                 {% if metodo_actual == 'vandermonde' %}checked{% endif %}>
+          <span>
+            <strong><i class="bi bi-grid-3x3"></i> Vandermonde (SE)</strong>
+            <small>Va = y, con a₀ + a₁x + ...</small>
+          </span>
+        </label>
+      </div>
+      <div class="row g-3 mb-3">
+        <div class="col-md-4">
+          <label class="form-label-nm">Evaluar en x</label>
+          <input type="number" step="any" name="x_eval" class="form-control-nm"
+                 placeholder="1.5" value="{{ request.form.get('x_eval','') }}">
+        </div>
+      </div>
+      <button type="submit" class="btn-nm btn-yellow-nm">
+        <i class="bi bi-calculator"></i> Construir polinomio
+      </button>
+    </form>
+  </div>
+</div>
+
+{% include '_resultados_datos.html' %}
+{% endblock %}

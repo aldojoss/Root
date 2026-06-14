@@ -271,6 +271,8 @@ class FlaskRoutesTest(unittest.TestCase):
             "/jacobi", "/gauss_seidel", "/newton_sistemas",
             "/newton_diferencias", "/lagrange",
             "/trazadores_cubicos", "/regresion_lineal",
+            "/analisis_inteligente",
+            "/teoria_metodos",
         ]:
             with self.subTest(path=path):
                 response = self.client.get(path)
@@ -332,6 +334,99 @@ class FlaskRoutesTest(unittest.TestCase):
         response = self.client.post(
             "/newton",
             data={"ecuacion_latex": "x^2-4", "x0": "abc", "tol": "0.01", "max_iter": "20"},
+        )
+        html = response.data.decode("utf-8", errors="replace")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Entrada inválida", html)
+        self.assertNotIn("Error inesperado", html)
+
+    def test_interactive_theory_route_contains_all_project_methods(self):
+        response = self.client.get("/teoria_metodos")
+        html = response.data.decode("utf-8", errors="replace")
+
+        self.assertEqual(response.status_code, 200)
+        for text in [
+            "Teoría Interactiva de Métodos",
+            "Bisección",
+            "Regla Falsa",
+            "Newton-Raphson",
+            "Secante",
+            "Punto Fijo",
+            "Series de Taylor",
+            "Horner",
+            "Horner-Newton",
+            "Müller",
+            "Bairstow",
+            "Eliminación de Gauss",
+            "Gauss-Jordan",
+            "Factorización LU",
+            "Jacobi",
+            "Gauss-Seidel",
+            "Newton para Sistemas",
+            "Newton Dif. Divididas",
+            "Lagrange",
+            "Trazadores Cúbicos",
+            "Regresión Lineal",
+            "methodSearch",
+            "methodDemoCanvas",
+        ]:
+            self.assertIn(text, html)
+        self.assertNotIn("Error inesperado", html)
+
+    def test_smart_analysis_posts_compare_methods(self):
+        forms = {
+            "raices": {
+                "tipo_problema": "raices",
+                "ecuacion_latex": "x^2-4",
+                "xl": "0",
+                "xu": "3",
+                "x0": "3",
+                "x1": "0",
+                "raiz_tol": "0.001",
+                "raiz_max_iter": "80",
+            },
+            "sistemas_lineales": {
+                "tipo_problema": "sistemas_lineales",
+                "matriz": "10 -1 2 6\n-1 11 -1 22\n2 -1 10 -10",
+                "inicial": "0,0,0",
+                "lineal_tol": "0.0001",
+                "lineal_max_iter": "100",
+            },
+            "interpolacion": {
+                "tipo_problema": "interpolacion",
+                "puntos": "0 1\n1 2\n2 5\n3 10",
+                "x_eval_datos": "1.5",
+                "objetivo_interpolacion": "auto",
+            },
+            "regresion": {
+                "tipo_problema": "regresion",
+                "puntos": "0 1\n1 3\n2 5\n3 7",
+                "x_eval_datos": "4",
+            },
+        }
+
+        for problem, data in forms.items():
+            with self.subTest(problem=problem):
+                response = self.client.post("/analisis_inteligente", data=data)
+                html = response.data.decode("utf-8", errors="replace")
+                self.assertEqual(response.status_code, 200)
+                self.assertIn("Comparación automática", html)
+                self.assertIn("Diagnóstico general", html)
+                self.assertIn(f'data-result-problem="{problem}"', html)
+                self.assertNotIn("Error inesperado", html)
+
+    def test_smart_analysis_handles_invalid_input(self):
+        response = self.client.post(
+            "/analisis_inteligente",
+            data={
+                "tipo_problema": "raices",
+                "ecuacion_latex": "x^2-4",
+                "xl": "abc",
+                "xu": "3",
+                "raiz_tol": "0.001",
+                "raiz_max_iter": "80",
+            },
         )
         html = response.data.decode("utf-8", errors="replace")
 

@@ -2,330 +2,320 @@
 {% block contenido %}
 
 <style>
-.hero-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+.home-hero {
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent-green) 12%, transparent), transparent 42%),
+    var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: clamp(24px, 4vw, 46px);
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+.home-hero::after {
+  content: '√';
+  position: absolute;
+  right: clamp(24px, 6vw, 72px);
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: var(--font-mono);
+  font-size: clamp(5rem, 13vw, 11rem);
+  font-weight: 800;
+  color: var(--hero-watermark);
+  pointer-events: none;
+}
+.home-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(46,229,157,0.10);
+  border: 1px solid rgba(46,229,157,0.28);
+  border-radius: 999px;
+  padding: 6px 12px;
+  color: var(--accent-green);
+  font-weight: 800;
+  font-size: 0.82rem;
+  margin-bottom: 18px;
+}
+.home-hero h1 {
+  font-family: var(--font-ui);
+  font-size: clamp(2.2rem, 5.4vw, 4.8rem);
+  font-weight: 900;
+  margin: 0 0 10px;
+  line-height: 0.95;
+  color: var(--text-primary);
+}
+.home-hero p {
+  color: var(--text-secondary);
+  font-size: 1rem;
+  max-width: 640px;
+  line-height: 1.7;
+  margin: 0 0 24px;
+}
+.home-stats {
+  display: flex;
   gap: 14px;
-  margin-top: 28px;
+  flex-wrap: wrap;
+}
+.home-stat {
+  min-width: 118px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg-input) 72%, transparent);
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+.home-stat strong {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 1.25rem;
+  color: var(--accent-green);
+  line-height: 1;
+}
+.home-stat span {
+  display: block;
+  margin-top: 5px;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+.method-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 14px;
+  margin: 16px 0 30px;
 }
 .method-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 20px;
+  border-radius: 14px;
+  padding: 18px;
   text-decoration: none;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  transition: all 0.18s ease;
-  position: relative;
-  overflow: hidden;
-}
-.method-card::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 2px;
-  background: var(--card-accent, var(--accent-blue));
-  opacity: 0;
-  transition: opacity 0.18s ease;
+  display: grid;
+  gap: 10px;
+  min-height: 190px;
+  color: var(--text-secondary);
+  transition: transform var(--transition), border-color var(--transition), background var(--transition), box-shadow var(--transition);
+  box-shadow: var(--shadow);
 }
 .method-card:hover {
   background: var(--bg-card-hover);
-  border-color: var(--card-accent, var(--accent-blue));
+  border-color: var(--card-accent, var(--accent-green));
   transform: translateY(-2px);
   box-shadow: var(--shadow-hover);
 }
-.method-card:hover::before { opacity: 1; }
-.method-card .card-tag {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.58rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  padding: 2px 7px;
-  border-radius: 3px;
-  width: fit-content;
-  background: color-mix(in srgb, var(--card-accent, var(--accent-blue)) 14%, transparent) !important;
-  color: var(--card-accent, var(--accent-blue)) !important;
-  border: 1px solid color-mix(in srgb, var(--card-accent, var(--accent-blue)) 28%, transparent);
+.method-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
-.method-card .card-icon {
-  font-size: 1.4rem;
-  margin-bottom: 2px;
+.method-card-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--card-accent, var(--accent-green)) 16%, var(--bg-input));
+  color: var(--card-accent, var(--accent-green));
+  font-size: 1.2rem;
 }
-.method-card .card-title {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.92rem;
-  font-weight: 700;
+.method-card-tag {
+  border: 1px solid color-mix(in srgb, var(--card-accent, var(--accent-green)) 34%, transparent);
+  background: color-mix(in srgb, var(--card-accent, var(--accent-green)) 12%, transparent);
+  color: var(--card-accent, var(--accent-green));
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+.method-card-title {
   color: var(--text-primary);
+  font-size: 1.02rem;
+  font-weight: 800;
   margin: 0;
 }
-.method-card .card-desc {
-  font-size: 0.78rem;
-  color: var(--text-muted);
+.method-card-desc {
+  color: var(--text-secondary);
+  font-size: 0.88rem;
   line-height: 1.55;
   margin: 0;
 }
-.method-card .card-conv {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.65rem;
-  color: var(--card-accent, var(--accent-blue));
+.method-card-meta {
   margin-top: auto;
-  padding-top: 8px;
+  padding-top: 10px;
   border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
 }
-
-.hero-banner {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 36px 40px;
-  position: relative;
-  overflow: hidden;
-}
-.hero-banner::after {
-  content: '∫∑∂∇';
-  position: absolute;
-  right: 32px; top: 50%;
-  transform: translateY(-50%);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 3.5rem;
-  font-weight: 700;
-  color: var(--hero-watermark);
-  letter-spacing: 0.2em;
-  pointer-events: none;
-}
-.hero-banner h1 {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 1.6rem;
-  font-weight: 700;
-  margin: 0 0 8px;
-  background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-.hero-banner p {
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-  max-width: 520px;
-  line-height: 1.6;
-  margin: 0 0 20px;
-}
-.status-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: rgba(67,217,162,0.1);
-  border: 1px solid rgba(67,217,162,0.25);
-  border-radius: 20px;
-  padding: 4px 12px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.68rem;
-  color: var(--accent-green);
-}
-.status-dot {
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  background: var(--accent-green);
-  animation: pulse 2s ease-in-out infinite;
-}
-@keyframes pulse {
-  0%,100% { opacity: 1; }
-  50%      { opacity: 0.3; }
+@media (max-width: 720px) {
+  .home-hero::after { display: none; }
 }
 </style>
 
-<!-- Hero banner -->
-<div class="hero-banner mb-4">
-  <span class="status-pill mb-3">
-    <span class="status-dot"></span>
-    Suite Numérica · v2.1
-  </span>
-  <h1>Métodos Numéricos</h1>
+<section class="home-hero mb-4">
+  <div class="home-eyebrow">
+    <i class="bi bi-check2-circle"></i>
+    Laboratorio activo
+  </div>
+  <h1>root</h1>
   <p>
-    Implementación de producción de los principales algoritmos de análisis numérico.
-    Cada método incluye validación defensiva, gráficas interactivas y tabla de convergencia.
+    Sistema interactivo de métodos numéricos para raíces, sistemas, interpolación,
+    regresión y teoría visual. Diseñado para probar, comparar y entender cada algoritmo.
   </p>
-  <div style="display:flex; gap:20px; flex-wrap:wrap;">
-    <div style="text-align:center;">
-      <div style="font-family:'JetBrains Mono',monospace; font-size:1.4rem; font-weight:700; color:var(--accent-blue);">16</div>
-      <div style="font-size:0.7rem; color:var(--text-muted);">Métodos</div>
+  <div class="home-stats">
+    <div class="home-stat">
+      <strong>20</strong>
+      <span>Métodos disponibles</span>
     </div>
-    <div style="text-align:center;">
-      <div style="font-family:'JetBrains Mono',monospace; font-size:1.4rem; font-weight:700; color:var(--accent-green);">1e-12</div>
-      <div style="font-size:0.7rem; color:var(--text-muted);">Umbral div/0</div>
+    <div class="home-stat">
+      <strong>4</strong>
+      <span>Familias de cálculo</span>
     </div>
-    <div style="text-align:center;">
-      <div style="font-family:'JetBrains Mono',monospace; font-size:1.4rem; font-weight:700; color:var(--accent-purple);">ℂ</div>
-      <div style="font-size:0.7rem; color:var(--text-muted);">Raíces complejas</div>
+    <div class="home-stat">
+      <strong>ℂ</strong>
+      <span>Soporte complejo</span>
     </div>
   </div>
-</div>
+</section>
 
-<!-- Métodos cerrados -->
-<div class="section-label"><i class="bi bi-lock"></i> Métodos Cerrados</div>
-<div class="hero-grid">
-  <a href="/biseccion" class="method-card" style="--card-accent: #4f9cf9">
-    <span class="card-tag" style="background:rgba(79,156,249,0.15); color:#4f9cf9;">Cerrado</span>
-    <div class="card-icon">✂️</div>
-    <p class="card-title">Bisección</p>
-    <p class="card-desc">Divide el intervalo a la mitad iterativamente garantizando convergencia si hay cambio de signo.</p>
-    <div class="card-conv">O(n) — lineal · requiere [xl, xu]</div>
+<div class="section-label"><i class="bi bi-shield-check"></i> Métodos cerrados</div>
+<div class="method-grid">
+  <a href="/biseccion" class="method-card" style="--card-accent: var(--accent-blue)">
+    <div class="method-card-top"><span class="method-card-icon"><i class="bi bi-arrows-collapse-vertical"></i></span><span class="method-card-tag">Cerrado</span></div>
+    <p class="method-card-title">Bisección</p>
+    <p class="method-card-desc">Divide el intervalo a la mitad y conserva el cambio de signo.</p>
+    <div class="method-card-meta">Seguro · requiere [xl, xu]</div>
   </a>
-  <a href="/falsa_posicion" class="method-card" style="--card-accent: #43d9a2">
-    <span class="card-tag" style="background:rgba(67,217,162,0.15); color:#43d9a2;">Cerrado</span>
-    <div class="card-icon">📐</div>
-    <p class="card-title">Regla Falsa</p>
-    <p class="card-desc">Usa la recta secante entre los extremos del intervalo para acelerar la convergencia.</p>
-    <div class="card-conv">O(n) — lineal · más rápida en funciones convexas</div>
+  <a href="/falsa_posicion" class="method-card" style="--card-accent: var(--accent-green)">
+    <div class="method-card-top"><span class="method-card-icon"><i class="bi bi-slash-lg"></i></span><span class="method-card-tag">Cerrado</span></div>
+    <p class="method-card-title">Regla Falsa</p>
+    <p class="method-card-desc">Usa la secante entre extremos sin perder el intervalo garantizado.</p>
+    <div class="method-card-meta">Lineal · conserva raíz encerrada</div>
   </a>
 </div>
 
-<!-- Métodos abiertos -->
-<div class="section-label mt-3"><i class="bi bi-unlock"></i> Métodos Abiertos</div>
-<div class="hero-grid">
-  <a href="/newton" class="method-card" style="--card-accent: #f97b4f">
-    <span class="card-tag" style="background:rgba(249,123,79,0.15); color:#f97b4f;">Abierto</span>
-    <div class="card-icon">⚡</div>
-    <p class="card-title">Newton-Raphson</p>
-    <p class="card-desc">Usa la derivada analítica para converger cuadráticamente. El método más potente para funciones suaves.</p>
-    <div class="card-conv">O(n²) — cuadrático · requiere f'(x)</div>
+<div class="section-label"><i class="bi bi-lightning-charge"></i> Métodos abiertos</div>
+<div class="method-grid">
+  <a href="/newton" class="method-card" style="--card-accent: var(--accent-orange)">
+    <div class="method-card-top"><span class="method-card-icon"><i class="bi bi-lightning-charge"></i></span><span class="method-card-tag">Abierto</span></div>
+    <p class="method-card-title">Newton-Raphson</p>
+    <p class="method-card-desc">Usa la tangente y la derivada para avanzar rápido hacia la raíz.</p>
+    <div class="method-card-meta">Cuadrático · requiere f'(x)</div>
   </a>
-  <a href="/secante" class="method-card" style="--card-accent: #c792ea">
-    <span class="card-tag" style="background:rgba(199,146,234,0.15); color:#c792ea;">Abierto</span>
-    <div class="card-icon">📏</div>
-    <p class="card-title">Secante</p>
-    <p class="card-desc">Aproxima la derivada con diferencias finitas. Superlineal sin necesidad de derivar.</p>
-    <div class="card-conv">O(φ) — superlineal · sin derivada analítica</div>
+  <a href="/secante" class="method-card" style="--card-accent: var(--accent-purple)">
+    <div class="method-card-top"><span class="method-card-icon"><i class="bi bi-diagonal"></i></span><span class="method-card-tag">Abierto</span></div>
+    <p class="method-card-title">Secante</p>
+    <p class="method-card-desc">Aproxima la derivada con dos puntos previos.</p>
+    <div class="method-card-meta">Superlineal · sin derivar</div>
   </a>
-  <a href="/punto_fijo" class="method-card" style="--card-accent: #c792ea">
-    <span class="card-tag" style="background:rgba(199,146,234,0.15); color:#c792ea;">Abierto</span>
-    <div class="card-icon">🔁</div>
-    <p class="card-title">Punto Fijo</p>
-    <p class="card-desc">Reformula f(x)=0 como x=g(x). El sistema elige automáticamente el despeje convergente.</p>
-    <div class="card-conv">Lineal · despeje automático · |g'(x₀)| &lt; 1</div>
+  <a href="/punto_fijo" class="method-card" style="--card-accent: var(--accent-yellow)">
+    <div class="method-card-top"><span class="method-card-icon"><i class="bi bi-arrow-repeat"></i></span><span class="method-card-tag">Abierto</span></div>
+    <p class="method-card-title">Punto Fijo</p>
+    <p class="method-card-desc">Transforma f(x)=0 en x=g(x) y analiza estabilidad.</p>
+    <div class="method-card-meta">Lineal · despeje automático</div>
   </a>
 </div>
 
-<!-- Especializados -->
-<div class="section-label mt-3"><i class="bi bi-cpu"></i> Algoritmos Especializados</div>
-<div class="hero-grid">
-  <a href="/taylor" class="method-card" style="--card-accent: #ffd580">
-    <span class="card-tag" style="background:rgba(255,213,128,0.15); color:#ffd580;">Serie</span>
-    <div class="card-icon">📊</div>
-    <p class="card-title">Series de Taylor</p>
-    <p class="card-desc">Aproxima f(x) con un polinomio construido a partir de sus derivadas en un punto base.</p>
-    <div class="card-conv">Σ f⁽ⁿ⁾(x₀)/n! · (x−x₀)ⁿ</div>
+<div class="section-label"><i class="bi bi-cpu"></i> Algoritmos especializados</div>
+<div class="method-grid">
+  <a href="/taylor" class="method-card" style="--card-accent: var(--accent-rose)">
+    <div class="method-card-top"><span class="method-card-icon"><i class="bi bi-activity"></i></span><span class="method-card-tag">Serie</span></div>
+    <p class="method-card-title">Series de Taylor</p>
+    <p class="method-card-desc">Aproxima una función con un polinomio construido desde derivadas.</p>
+    <div class="method-card-meta">Polinomio local · derivadas</div>
   </a>
-  <a href="/horner" class="method-card" style="--card-accent: #ffd580">
-    <span class="card-tag" style="background:rgba(255,213,128,0.15); color:#ffd580;">Polinomio</span>
-    <div class="card-icon">🗂️</div>
-    <p class="card-title">Horner</p>
-    <p class="card-desc">Evaluación de polinomios por división sintética. Mínimo de operaciones aritméticas.</p>
-    <div class="card-conv">O(n) mults · solo polinomios</div>
+  <a href="/horner" class="method-card" style="--card-accent: var(--accent-yellow)">
+    <div class="method-card-top"><span class="method-card-icon"><i class="bi bi-table"></i></span><span class="method-card-tag">Polinomio</span></div>
+    <p class="method-card-title">Horner</p>
+    <p class="method-card-desc">Evalúa polinomios con multiplicaciones encadenadas.</p>
+    <div class="method-card-meta">O(n) · división sintética</div>
   </a>
-  <a href="/horner_newton" class="method-card" style="--card-accent: #43d9a2">
-    <span class="card-tag" style="background:rgba(67,217,162,0.15); color:#43d9a2;">Híbrido</span>
-    <div class="card-icon">🎯</div>
-    <p class="card-title">Horner-Newton</p>
-    <p class="card-desc">Combina Newton-Raphson con doble división sintética. Ideal para polinomios de alto grado.</p>
-    <div class="card-conv">Cuadrático · Birge-Vieta</div>
+  <a href="/horner_newton" class="method-card" style="--card-accent: var(--accent-green)">
+    <div class="method-card-top"><span class="method-card-icon"><i class="bi bi-bullseye"></i></span><span class="method-card-tag">Híbrido</span></div>
+    <p class="method-card-title">Horner-Newton</p>
+    <p class="method-card-desc">Combina Newton con Horner para polinomios.</p>
+    <div class="method-card-meta">Birge-Vieta · raíces</div>
   </a>
-  <a href="/muller" class="method-card" style="--card-accent: #f97b4f">
-    <span class="card-tag" style="background:rgba(249,123,79,0.15); color:#f97b4f;">Complejo</span>
-    <div class="card-icon">🌀</div>
-    <p class="card-title">Müller</p>
-    <p class="card-desc">Ajusta una parábola a tres puntos. Puede encontrar raíces complejas que los demás métodos no detectan.</p>
-    <div class="card-conv">O(1.84) · raíces ℝ y ℂ</div>
+  <a href="/muller" class="method-card" style="--card-accent: var(--accent-orange)">
+    <div class="method-card-top"><span class="method-card-icon"><i class="bi bi-node-plus"></i></span><span class="method-card-tag">Complejo</span></div>
+    <p class="method-card-title">Müller</p>
+    <p class="method-card-desc">Ajusta una parábola con tres puntos para buscar raíces.</p>
+    <div class="method-card-meta">Raíces reales y complejas</div>
   </a>
-  <a href="/bairstow" class="method-card" style="--card-accent: #c792ea">
-    <span class="card-tag" style="background:rgba(199,146,234,0.15); color:#c792ea;">Deflación</span>
-    <div class="card-icon">🔬</div>
-    <p class="card-title">Bairstow</p>
-    <p class="card-desc">Extrae factores cuadráticos iterativamente para encontrar TODAS las raíces del polinomio a la vez.</p>
-    <div class="card-conv">Deflación completa · grado ≥ 3</div>
+  <a href="/bairstow" class="method-card" style="--card-accent: var(--accent-purple)">
+    <div class="method-card-top"><span class="method-card-icon"><i class="bi bi-boxes"></i></span><span class="method-card-tag">Deflación</span></div>
+    <p class="method-card-title">Bairstow</p>
+    <p class="method-card-desc">Extrae factores cuadráticos de un polinomio.</p>
+    <div class="method-card-meta">Pares de raíces · grado ≥ 3</div>
   </a>
 </div>
 
-<!-- Sistemas de ecuaciones -->
-<div class="section-label mt-3"><i class="bi bi-grid-3x3-gap"></i> Sistemas de Ecuaciones</div>
-<div class="hero-grid">
-  <a href="/gauss" class="method-card" style="--card-accent: #4f9cf9">
-    <span class="card-tag" style="background:rgba(79,156,249,0.15); color:#4f9cf9;">Directo</span>
-    <div class="card-icon">🔢</div>
-    <p class="card-title">Eliminación de Gauss</p>
-    <p class="card-desc">Triangulariza la matriz aumentada con pivoteo parcial y sustitución regresiva.</p>
-    <div class="card-conv">Solución única · pivoteo parcial</div>
+<div class="section-label"><i class="bi bi-grid-3x3-gap"></i> Sistemas de ecuaciones</div>
+<div class="method-grid">
+  <a href="/gauss" class="method-card" style="--card-accent: var(--accent-blue)">
+    <div class="method-card-top"><span class="method-card-icon"><i class="bi bi-grid-3x3-gap"></i></span><span class="method-card-tag">Directo</span></div>
+    <p class="method-card-title">Eliminación de Gauss</p>
+    <p class="method-card-desc">Triangulariza la matriz y resuelve por sustitución regresiva.</p>
+    <div class="method-card-meta">Pivoteo parcial</div>
   </a>
-  <a href="/gauss_jordan" class="method-card" style="--card-accent: #43d9a2">
-    <span class="card-tag" style="background:rgba(67,217,162,0.15); color:#43d9a2;">Directo</span>
-    <div class="card-icon">🧩</div>
-    <p class="card-title">Gauss-Jordan</p>
-    <p class="card-desc">Reduce la matriz hasta forma canónica para leer la solución directamente.</p>
-    <div class="card-conv">RREF · pivoteo parcial</div>
+  <a href="/gauss_jordan" class="method-card" style="--card-accent: var(--accent-green)">
+    <div class="method-card-top"><span class="method-card-icon"><i class="bi bi-layout-three-columns"></i></span><span class="method-card-tag">Directo</span></div>
+    <p class="method-card-title">Gauss-Jordan</p>
+    <p class="method-card-desc">Reduce hasta identidad para leer la solución directo.</p>
+    <div class="method-card-meta">Forma reducida</div>
   </a>
-  <a href="/lu" class="method-card" style="--card-accent: #c792ea">
-    <span class="card-tag" style="background:rgba(199,146,234,0.15); color:#c792ea;">Factorización</span>
-    <div class="card-icon">🧱</div>
-    <p class="card-title">LU</p>
-    <p class="card-desc">Factoriza PA = LU y resuelve con sustitución hacia adelante y hacia atrás.</p>
-    <div class="card-conv">P, L, U · estable con pivoteo</div>
+  <a href="/lu" class="method-card" style="--card-accent: var(--accent-purple)">
+    <div class="method-card-top"><span class="method-card-icon"><i class="bi bi-layers"></i></span><span class="method-card-tag">Factorización</span></div>
+    <p class="method-card-title">LU</p>
+    <p class="method-card-desc">Separa A en L y U para resolver sistemas triangulares.</p>
+    <div class="method-card-meta">PA = LU</div>
   </a>
-  <a href="/jacobi" class="method-card" style="--card-accent: #80cbc4">
-    <span class="card-tag" style="background:rgba(128,203,196,0.15); color:#80cbc4;">Iterativo</span>
-    <div class="card-icon">🔁</div>
-    <p class="card-title">Jacobi</p>
-    <p class="card-desc">Actualiza todas las variables usando solo los valores de la iteración anterior.</p>
-    <div class="card-conv">ρ(B) &lt; 1 · vector inicial</div>
+  <a href="/jacobi" class="method-card" style="--card-accent: var(--accent-cyan)">
+    <div class="method-card-top"><span class="method-card-icon"><i class="bi bi-arrow-repeat"></i></span><span class="method-card-tag">Iterativo</span></div>
+    <p class="method-card-title">Jacobi</p>
+    <p class="method-card-desc">Calcula cada variable usando solo la iteración anterior.</p>
+    <div class="method-card-meta">ρ(B) &lt; 1</div>
   </a>
-  <a href="/gauss_seidel" class="method-card" style="--card-accent: #ffd580">
-    <span class="card-tag" style="background:rgba(255,213,128,0.15); color:#ffd580;">Iterativo</span>
-    <div class="card-icon">↕️</div>
-    <p class="card-title">Gauss-Seidel</p>
-    <p class="card-desc">Usa cada componente nuevo en cuanto se calcula para acelerar la convergencia.</p>
-    <div class="card-conv">Más rápido que Jacobi en muchos sistemas</div>
+  <a href="/gauss_seidel" class="method-card" style="--card-accent: var(--accent-yellow)">
+    <div class="method-card-top"><span class="method-card-icon"><i class="bi bi-arrow-down-up"></i></span><span class="method-card-tag">Iterativo</span></div>
+    <p class="method-card-title">Gauss-Seidel</p>
+    <p class="method-card-desc">Usa valores nuevos inmediatamente dentro de la misma vuelta.</p>
+    <div class="method-card-meta">Secuencial · suele acelerar</div>
   </a>
-  <a href="/newton_sistemas" class="method-card" style="--card-accent: #f97b4f">
-    <span class="card-tag" style="background:rgba(249,123,79,0.15); color:#f97b4f;">No lineal</span>
-    <div class="card-icon">🎛️</div>
-    <p class="card-title">Newton Sistemas</p>
-    <p class="card-desc">Resuelve F(x)=0 con Jacobiano simbólico y actualización vectorial.</p>
-    <div class="card-conv">J(x)y = F(x) · x nuevo = x − y</div>
+  <a href="/newton_sistemas" class="method-card" style="--card-accent: var(--accent-orange)">
+    <div class="method-card-top"><span class="method-card-icon"><i class="bi bi-bounding-box-circles"></i></span><span class="method-card-tag">No lineal</span></div>
+    <p class="method-card-title">Newton Sistemas</p>
+    <p class="method-card-desc">Linealiza F(x)=0 con jacobiana y corrige el vector.</p>
+    <div class="method-card-meta">Jy = F · x nuevo = x - y</div>
   </a>
 </div>
 
-<!-- Datos e interpolación -->
-<div class="section-label mt-3"><i class="bi bi-bezier2"></i> Datos e Interpolación</div>
-<div class="hero-grid">
-  <a href="/newton_diferencias" class="method-card" style="--card-accent: #80cbc4">
-    <span class="card-tag" style="background:rgba(128,203,196,0.15); color:#80cbc4;">Interpolación</span>
-    <div class="card-icon">🧮</div>
-    <p class="card-title">Newton Dif. Divididas</p>
-    <p class="card-desc">Construye la tabla de diferencias divididas y el polinomio interpolante con datos discretos.</p>
-    <div class="card-conv">P(x) = b₀ + b₁(x−x₀) + ...</div>
+<div class="section-label"><i class="bi bi-graph-up"></i> Datos e interpolación</div>
+<div class="method-grid">
+  <a href="/newton_diferencias" class="method-card" style="--card-accent: var(--accent-cyan)">
+    <div class="method-card-top"><span class="method-card-icon"><i class="bi bi-diagram-2"></i></span><span class="method-card-tag">Interpolación</span></div>
+    <p class="method-card-title">Newton Dif. Divididas</p>
+    <p class="method-card-desc">Construye el polinomio desde una tabla triangular.</p>
+    <div class="method-card-meta">Tabla incremental</div>
   </a>
-  <a href="/lagrange" class="method-card" style="--card-accent: #ffcb6b">
-    <span class="card-tag" style="background:rgba(255,203,107,0.15); color:#ffcb6b;">Polinomio</span>
-    <div class="card-icon">📈</div>
-    <p class="card-title">Lagrange</p>
-    <p class="card-desc">Construye el polinomio con bases Lᵢ(x) o resolviendo el sistema de Vandermonde.</p>
-    <div class="card-conv">Lagrange clásico · Va = y</div>
+  <a href="/lagrange" class="method-card" style="--card-accent: var(--accent-yellow)">
+    <div class="method-card-top"><span class="method-card-icon"><i class="bi bi-intersect"></i></span><span class="method-card-tag">Polinomio</span></div>
+    <p class="method-card-title">Lagrange</p>
+    <p class="method-card-desc">Suma bases Lᵢ(x) o resuelve por Vandermonde.</p>
+    <div class="method-card-meta">Bases · Va = y</div>
   </a>
-  <a href="/trazadores_cubicos" class="method-card" style="--card-accent: #82aaff">
-    <span class="card-tag" style="background:rgba(130,170,255,0.15); color:#82aaff;">Spline</span>
-    <div class="card-icon">〰️</div>
-    <p class="card-title">Trazadores Cúbicos</p>
-    <p class="card-desc">Genera splines cúbicos naturales por intervalos para una curva suave entre puntos.</p>
-    <div class="card-conv">S, S' y S'' continuas · natural</div>
+  <a href="/trazadores_cubicos" class="method-card" style="--card-accent: var(--accent-blue)">
+    <div class="method-card-top"><span class="method-card-icon"><i class="bi bi-bezier"></i></span><span class="method-card-tag">Spline</span></div>
+    <p class="method-card-title">Trazadores Cúbicos</p>
+    <p class="method-card-desc">Crea cúbicos por tramos conectados suavemente.</p>
+    <div class="method-card-meta">S, S' y S'' continuas</div>
   </a>
-  <a href="/regresion_lineal" class="method-card" style="--card-accent: #cf6679">
-    <span class="card-tag" style="background:rgba(207,102,121,0.15); color:#cf6679;">Regresión</span>
-    <div class="card-icon">📉</div>
-    <p class="card-title">Regresión Lineal</p>
-    <p class="card-desc">Ajusta ŷ = b₀ + b₁x por mínimos cuadrados y calcula r, R² y residuales.</p>
-    <div class="card-conv">Mínimos cuadrados · predicción</div>
+  <a href="/regresion_lineal" class="method-card" style="--card-accent: var(--accent-rose)">
+    <div class="method-card-top"><span class="method-card-icon"><i class="bi bi-graph-up-arrow"></i></span><span class="method-card-tag">Regresión</span></div>
+    <p class="method-card-title">Regresión Lineal</p>
+    <p class="method-card-desc">Ajusta la mejor recta por mínimos cuadrados.</p>
+    <div class="method-card-meta">R² · residuales</div>
   </a>
 </div>
 

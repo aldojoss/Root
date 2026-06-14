@@ -4,11 +4,11 @@
 
 <!-- Page header -->
 <div class="page-header">
-  <div class="method-icon" style="background:rgba(79,156,249,0.15);">
-    <i class="bi bi-arrows-collapse-vertical" style="color:#4f9cf9;"></i>
+  <div class="method-icon" style="background:rgba(110,168,255,0.15);">
+    <i class="bi bi-arrows-collapse-vertical" style="color:#6ea8ff;"></i>
   </div>
   <div>
-    <h2 style="color:#4f9cf9;">Bisección</h2>
+    <h2 style="color:#6ea8ff;">Bisección</h2>
     <p>
       Divide el intervalo [xl, xu] a la mitad en cada paso. Requiere f(xl)·f(xu) &lt; 0 (Teorema de Bolzano).
       Convergencia <strong>lineal</strong> garantizada: el error se reduce exactamente a la mitad por iteración.
@@ -75,7 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const calc = createDarkDesmos(elt);
 
   function update() {
-    calc.setExpression({ id:'f', latex:'f(x)=' + (mf.value||'0'), color:'#4f9cf9' });
+    calc.setExpression({ id:'f', latex:'f(x)=' + (mf.value||'0'), color:'#6ea8ff' });
   }
   mf.addEventListener('input', update);
   setTimeout(update, 350);

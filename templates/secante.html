@@ -3,11 +3,11 @@
 <script src="https://www.desmos.com/api/v1.8/calculator.js?apiKey=dcb31709b452b1cf9dc26972add0fda6"></script>
 
 <div class="page-header">
-  <div class="method-icon" style="background:rgba(199,146,234,0.15);">
-    <i class="bi bi-diagonal" style="color:#c792ea;"></i>
+  <div class="method-icon" style="background:rgba(199,146,255,0.15);">
+    <i class="bi bi-diagonal" style="color:#c792ff;"></i>
   </div>
   <div>
-    <h2 style="color:#c792ea;">Secante</h2>
+    <h2 style="color:#c792ff;">Secante</h2>
     <p>
       Aproxima f'(xᵢ) ≈ [f(xᵢ)−f(xᵢ₋₁)] / (xᵢ−xᵢ₋₁). No necesita derivada analítica.
       Convergencia <strong>superlineal</strong> de orden φ ≈ 1.618 (número áureo).
@@ -62,7 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const mf   = document.getElementById('formula');
   const calc = createDarkDesmos(document.getElementById('desmos'));
   function update() {
-    calc.setExpression({ id:'f', latex:'f(x)=' + (mf.value||'0'), color:'#c792ea' });
+    calc.setExpression({ id:'f', latex:'f(x)=' + (mf.value||'0'), color:'#c792ff' });
   }
   mf.addEventListener('input', update);
   setTimeout(update, 350);

@@ -3,11 +3,11 @@
 <script src="https://www.desmos.com/api/v1.8/calculator.js?apiKey=dcb31709b452b1cf9dc26972add0fda6"></script>
 
 <div class="page-header">
-  <div class="method-icon" style="background:rgba(199,146,234,0.15);">
-    <i class="bi bi-arrow-repeat" style="color:#c792ea;"></i>
+  <div class="method-icon" style="background:rgba(199,146,255,0.15);">
+    <i class="bi bi-arrow-repeat" style="color:#c792ff;"></i>
   </div>
   <div>
-    <h2 style="color:#c792ea;">Punto Fijo <span style="font-size:0.7em; opacity:0.6;">(despeje automático)</span></h2>
+    <h2 style="color:#c792ff;">Punto Fijo <span style="font-size:0.7em; opacity:0.6;">(despeje automático)</span></h2>
     <p>
       Reformula f(x)=0 como x=g(x) y converge iterando xᵢ₊₁ = g(xᵢ).
       El sistema evalúa múltiples despejes algebraicos y selecciona automáticamente
@@ -39,11 +39,11 @@
       </div>
       {% include '_math_input.html' %}
 
-      <div style="background:rgba(199,146,234,0.07); border:1px solid rgba(199,146,234,0.2);
+      <div style="background:rgba(199,146,255,0.07); border:1px solid rgba(199,146,255,0.2);
                   border-radius:var(--radius-sm); padding:10px 14px; margin-bottom:16px;">
         <p style="font-size:0.75rem; color:var(--text-muted); margin:0; line-height:1.6;">
-          <i class="bi bi-robot" style="color:#c792ea;"></i>
-          <strong style="color:#c792ea;">Auto-Despeje:</strong>
+          <i class="bi bi-robot" style="color:#c792ff;"></i>
+          <strong style="color:#c792ff;">Auto-Despeje:</strong>
           Ingresa la ecuación original f(x). No necesitas reformularla manualmente.
           El sistema probará distintos despejes y elegirá el más estable.
         </p>
@@ -68,7 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const mf   = document.getElementById('formula');
   const calc = createDarkDesmos(document.getElementById('desmos'));
   function update() {
-    calc.setExpression({ id:'f', latex:'f(x)=' + (mf.value||'0'), color:'#c792ea' });
+    calc.setExpression({ id:'f', latex:'f(x)=' + (mf.value||'0'), color:'#c792ff' });
   }
   mf.addEventListener('input', update);
   setTimeout(update, 350);

@@ -1,0 +1,398 @@
+{% extends 'base.html' %}
+{% block contenido %}
+<style>
+  .smart-choice-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+  .smart-choice {
+    position: relative;
+  }
+  .smart-choice input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .smart-choice span {
+    min-height: 76px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-input);
+    color: var(--text-secondary);
+    display: grid;
+    gap: 5px;
+    padding: 12px 14px;
+    cursor: pointer;
+    transition: all var(--transition);
+  }
+  .smart-choice strong {
+    color: var(--text-primary);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .smart-choice small {
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    line-height: 1.4;
+  }
+  .smart-choice input:checked + span {
+    border-color: rgba(100,168,255,0.68);
+    background: rgba(100,168,255,0.1);
+    box-shadow: 0 0 0 3px rgba(100,168,255,0.1);
+  }
+  .smart-section[hidden] { display: none !important; }
+  .smart-status {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border-radius: 999px;
+    padding: 4px 9px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.64rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .smart-status.good {
+    color: var(--accent-green);
+    background: rgba(46,229,157,0.1);
+    border: 1px solid rgba(46,229,157,0.28);
+  }
+  .smart-status.ok {
+    color: var(--accent-blue);
+    background: rgba(100,168,255,0.1);
+    border: 1px solid rgba(100,168,255,0.28);
+  }
+  .smart-status.warn {
+    color: var(--accent-yellow);
+    background: rgba(255,217,138,0.1);
+    border: 1px solid rgba(255,217,138,0.28);
+  }
+  .smart-status.bad {
+    color: var(--accent-orange);
+    background: rgba(255,134,88,0.1);
+    border: 1px solid rgba(255,134,88,0.28);
+  }
+  .smart-copy {
+    color: var(--text-secondary);
+    font-size: 0.86rem;
+    line-height: 1.62;
+  }
+</style>
+
+<div class="page-header">
+  <div class="method-icon" style="background:rgba(100,168,255,0.15);">
+    <i class="bi bi-stars" style="color:var(--accent-blue);"></i>
+  </div>
+  <div>
+    <h2 style="color:var(--accent-blue);">Análisis Inteligente</h2>
+    <p>
+      Describe el tipo de problema y el sistema compara métodos con reglas matemáticas:
+      aplicabilidad, convergencia, riesgos y recomendación didáctica.
+    </p>
+  </div>
+</div>
+
+<div class="card-nm">
+  <div class="card-nm-header"><i class="bi bi-sliders"></i> Problema a analizar</div>
+  <div class="card-nm-body">
+    <form method="POST" id="smartForm">
+      {% set problema_actual = request.form.get('tipo_problema', 'raices') %}
+      <label class="form-label-nm">¿Qué tipo de problema quieres resolver?</label>
+      <div class="smart-choice-grid" id="problemChoices">
+        <label class="smart-choice">
+          <input type="radio" name="tipo_problema" value="raices" {% if problema_actual == 'raices' %}checked{% endif %}>
+          <span>
+            <strong><i class="bi bi-crosshair"></i> Raíces</strong>
+            <small>Compara Bisección, Regla Falsa, Newton y Secante.</small>
+          </span>
+        </label>
+        <label class="smart-choice">
+          <input type="radio" name="tipo_problema" value="sistemas_lineales" {% if problema_actual == 'sistemas_lineales' %}checked{% endif %}>
+          <span>
+            <strong><i class="bi bi-grid-3x3-gap"></i> Sistemas lineales</strong>
+            <small>Analiza directos, Jacobi y Gauss-Seidel.</small>
+          </span>
+        </label>
+        <label class="smart-choice">
+          <input type="radio" name="tipo_problema" value="interpolacion" {% if problema_actual == 'interpolacion' %}checked{% endif %}>
+          <span>
+            <strong><i class="bi bi-bezier"></i> Interpolación</strong>
+            <small>Revisa Lagrange, Newton y trazadores cúbicos.</small>
+          </span>
+        </label>
+        <label class="smart-choice">
+          <input type="radio" name="tipo_problema" value="regresion" {% if problema_actual == 'regresion' %}checked{% endif %}>
+          <span>
+            <strong><i class="bi bi-graph-up-arrow"></i> Regresión</strong>
+            <small>Diagnostica ajuste lineal y posible curvatura.</small>
+          </span>
+        </label>
+      </div>
+
+      <div class="smart-section" data-problem-section="raices">
+        <div class="section-label"><i class="bi bi-crosshair"></i> Datos para raíces</div>
+        {% include '_math_input.html' %}
+        <div class="row g-3 mb-3">
+          <div class="col-md-3">
+            <label class="form-label-nm">Intervalo a</label>
+            <input type="number" step="any" name="xl" class="form-control-nm" placeholder="0"
+                   value="{{ request.form.get('xl','0') }}">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label-nm">Intervalo b</label>
+            <input type="number" step="any" name="xu" class="form-control-nm" placeholder="3"
+                   value="{{ request.form.get('xu','3') }}">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label-nm">Punto inicial x0</label>
+            <input type="number" step="any" name="x0" class="form-control-nm" placeholder="3"
+                   value="{{ request.form.get('x0','3') }}">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label-nm">Segundo punto x1</label>
+            <input type="number" step="any" name="x1" class="form-control-nm" placeholder="0"
+                   value="{{ request.form.get('x1','0') }}">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label-nm">Tolerancia (%)</label>
+            <input type="number" step="any" name="raiz_tol" class="form-control-nm" required
+                   value="{{ request.form.get('raiz_tol','0.001') }}">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label-nm">Máx. iteraciones</label>
+            <input type="number" name="raiz_max_iter" class="form-control-nm" required min="1" max="1000"
+                   value="{{ request.form.get('raiz_max_iter','80') }}">
+          </div>
+        </div>
+      </div>
+
+      <div class="smart-section" data-problem-section="sistemas_lineales">
+        <div class="section-label"><i class="bi bi-grid-3x3-gap"></i> Sistema lineal</div>
+        {% set matrix_id = 'smart-linear' %}
+        {% set matrix_default = "10 -1 2 6\n-1 11 -1 22\n2 -1 10 -10" %}
+        {% set matrix_max = 10 %}
+        {% include '_matrix_editor.html' %}
+        <div class="row g-3 mb-3">
+          <div class="col-lg-4">
+            <label class="form-label-nm">Vector inicial</label>
+            <input name="inicial" class="form-control-nm" placeholder="0,0,0"
+                   value="{{ request.form.get('inicial','0,0,0') }}">
+          </div>
+          <div class="col-lg-4">
+            <label class="form-label-nm">Tolerancia (%)</label>
+            <input type="number" step="any" name="lineal_tol" class="form-control-nm" required
+                   value="{{ request.form.get('lineal_tol','0.0001') }}">
+          </div>
+          <div class="col-lg-4">
+            <label class="form-label-nm">Máx. iteraciones</label>
+            <input type="number" name="lineal_max_iter" class="form-control-nm" required min="1" max="1000"
+                   value="{{ request.form.get('lineal_max_iter','100') }}">
+          </div>
+        </div>
+      </div>
+
+      <div class="smart-section" data-problem-section="interpolacion">
+        <div class="section-label"><i class="bi bi-bezier"></i> Datos de interpolación</div>
+        {% set points_min = 2 %}
+        {% set points_max = 40 %}
+        {% set points_default = "-1 2\n0 1\n2 5\n3 10\n4 14\n5 18" %}
+        {% include '_points_editor.html' %}
+        <div class="row g-3 mb-3">
+          <div class="col-md-4">
+            <label class="form-label-nm">Evaluar en x</label>
+            <input type="number" step="any" name="x_eval_datos" class="form-control-nm"
+                   placeholder="1.5" value="{{ request.form.get('x_eval_datos','') }}">
+          </div>
+          <div class="col-md-5">
+            <label class="form-label-nm">Objetivo</label>
+            <select name="objetivo_interpolacion" class="form-control-nm">
+              {% set objetivo_actual = request.form.get('objetivo_interpolacion', 'auto') %}
+              <option value="auto" {% if objetivo_actual == 'auto' %}selected{% endif %}>Automático</option>
+              <option value="polinomio" {% if objetivo_actual == 'polinomio' %}selected{% endif %}>Polinomio único</option>
+              <option value="suavidad" {% if objetivo_actual == 'suavidad' %}selected{% endif %}>Suavidad por tramos</option>
+              <option value="agregar" {% if objetivo_actual == 'agregar' %}selected{% endif %}>Agregar puntos luego</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="smart-section" data-problem-section="regresion">
+        <div class="section-label"><i class="bi bi-graph-up-arrow"></i> Datos de regresión</div>
+        {% set points_min = 2 %}
+        {% set points_max = 80 %}
+        {% set points_default = "0 1\n1 3\n2 5\n3 7\n4 9" %}
+        {% include '_points_editor.html' %}
+        <div class="row g-3 mb-3">
+          <div class="col-md-4">
+            <label class="form-label-nm">Predecir en x</label>
+            <input type="number" step="any" name="x_eval_datos" class="form-control-nm"
+                   placeholder="5" value="{{ request.form.get('x_eval_datos','') }}">
+          </div>
+        </div>
+      </div>
+
+      <button type="submit" class="btn-nm btn-primary-nm">
+        <i class="bi bi-search"></i> Analizar métodos
+      </button>
+    </form>
+  </div>
+</div>
+
+{% if datos %}
+<div id="smartResults" data-result-problem="{{ datos.problema|default('') }}">
+  {% if datos.error %}
+    <div class="alert-nm warning">
+      <div class="alert-icon">⚠️</div>
+      <div>
+        <h5>{{ datos.titulo }}</h5>
+        <p>{{ datos.mensaje }}</p>
+        {% if datos.consejo %}
+          <p class="tip"><i class="bi bi-lightbulb"></i> {{ datos.consejo }}</p>
+        {% endif %}
+      </div>
+    </div>
+  {% else %}
+    <div class="stats-strip">
+      {% for item in datos.resumen %}
+        <div class="mini-stat">
+          <div class="label">{{ item.label }}</div>
+          <div class="value">{{ item.value }}</div>
+        </div>
+      {% endfor %}
+    </div>
+
+    <div class="alert-nm success">
+      <div class="alert-icon"><i class="bi bi-check2-circle"></i></div>
+      <div>
+        <h5>{{ datos.recomendacion.metodo }}</h5>
+        <p>{{ datos.recomendacion.texto }}</p>
+      </div>
+    </div>
+
+    <div class="section-label"><i class="bi bi-clipboard2-pulse"></i> Diagnóstico general</div>
+    <div class="card-nm">
+      <div class="card-nm-body smart-copy">{{ datos.diagnostico }}</div>
+    </div>
+
+    <div class="section-label"><i class="bi bi-table"></i> Comparación automática</div>
+    <div class="card-nm" style="overflow-x:auto;">
+      <table class="table-nm">
+        <thead>
+          <tr>
+            <th>Método</th>
+            <th>Estado</th>
+            <th>Iter.</th>
+            <th>Resultado</th>
+            <th>Error</th>
+            <th>ρ(B) / R²</th>
+            <th>Criterio matemático</th>
+            <th>Riesgo</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for fila in datos.comparacion %}
+            <tr>
+              <td class="cell-blue">
+                {% if fila.url and fila.url != '#' %}
+                  <a href="{{ fila.url }}" style="color:inherit; text-decoration:none;">{{ fila.metodo }}</a>
+                {% else %}
+                  {{ fila.metodo }}
+                {% endif %}
+              </td>
+              <td><span class="smart-status {{ fila.estado_key }}">{{ fila.estado }}</span></td>
+              <td class="cell-iter">{{ fila.iteraciones }}</td>
+              <td class="cell-result">{{ fila.resultado }}</td>
+              <td class="cell-error">{{ fila.error_final }}</td>
+              <td class="cell-purple">{{ fila.rho|default(fila.r2|default('-')) }}</td>
+              <td style="min-width:260px; text-align:left;">{{ fila.criterio }}</td>
+              <td style="min-width:220px; text-align:left;">{{ fila.riesgo }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if datos.advertencias %}
+      <div class="section-label"><i class="bi bi-exclamation-triangle"></i> Advertencias</div>
+      {% for item in datos.advertencias %}
+        <div class="alert-nm warning">
+          <div class="alert-icon"><i class="bi bi-exclamation-triangle"></i></div>
+          <div><p>{{ item }}</p></div>
+        </div>
+      {% endfor %}
+    {% endif %}
+
+    {% if datos.explicacion %}
+      <div class="section-label"><i class="bi bi-journal-text"></i> Explicación didáctica</div>
+      <div class="card-nm">
+        <div class="card-nm-body">
+          {% for item in datos.explicacion %}
+            <p class="smart-copy {% if not loop.last %}mb-2{% else %}mb-0{% endif %}">{{ item }}</p>
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
+
+    {% if datos.grafica %}
+      <div class="section-label"><i class="bi bi-graph-up"></i> Gráfica de apoyo</div>
+      <div class="plot-wrap mb-4">
+        <img src="data:image/png;base64,{{ datos.grafica }}" alt="Gráfica del análisis inteligente" />
+      </div>
+    {% endif %}
+  {% endif %}
+</div>
+{% endif %}
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const form = document.getElementById('smartForm');
+  const sections = [...document.querySelectorAll('[data-problem-section]')];
+  const choices = [...document.querySelectorAll('input[name="tipo_problema"]')];
+  const results = document.getElementById('smartResults');
+
+  function currentProblem() {
+    const checked = choices.find((input) => input.checked);
+    return checked ? checked.value : 'raices';
+  }
+
+  function syncSections() {
+    const active = currentProblem();
+    sections.forEach((section) => {
+      const enabled = section.dataset.problemSection === active;
+      section.hidden = !enabled;
+      section.querySelectorAll('input, select, textarea, button, math-field').forEach((control) => {
+        control.disabled = !enabled;
+      });
+    });
+    syncResults(active);
+  }
+
+  function syncResults(active) {
+    if (!results) return;
+    const resultProblem = results.dataset.resultProblem || '';
+    const stale = resultProblem && resultProblem !== active;
+    results.hidden = stale;
+    results.setAttribute('aria-hidden', stale ? 'true' : 'false');
+  }
+
+  choices.forEach((input) => input.addEventListener('change', syncSections));
+  syncSections();
+  setTimeout(syncSections, 0);
+  setTimeout(syncSections, 250);
+
+  if (form) {
+    form.addEventListener('submit', () => {
+      syncSections();
+    });
+  }
+});
+</script>
+{% endblock %}

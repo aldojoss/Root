@@ -3,11 +3,11 @@
 <script src="https://www.desmos.com/api/v1.8/calculator.js?apiKey=dcb31709b452b1cf9dc26972add0fda6"></script>
 
 <div class="page-header">
-  <div class="method-icon" style="background:rgba(67,217,162,0.15);">
-    <i class="bi bi-slash-lg" style="color:#43d9a2;"></i>
+  <div class="method-icon" style="background:rgba(46,229,157,0.15);">
+    <i class="bi bi-slash-lg" style="color:#2ee59d;"></i>
   </div>
   <div>
-    <h2 style="color:#43d9a2;">Regla Falsa</h2>
+    <h2 style="color:#2ee59d;">Regla Falsa</h2>
     <p>
       Une f(xl) y f(xu) con una recta secante y encuentra su intersección con el eje X.
       Más rápida que Bisección en funciones convexas. Sigue requiriendo cambio de signo.
@@ -61,7 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const mf   = document.getElementById('formula');
   const calc = createDarkDesmos(document.getElementById('desmos'));
   function update() {
-    calc.setExpression({ id:'f', latex:'f(x)=' + (mf.value||'0'), color:'#43d9a2' });
+    calc.setExpression({ id:'f', latex:'f(x)=' + (mf.value||'0'), color:'#2ee59d' });
   }
   mf.addEventListener('input', update);
   setTimeout(update, 350);

@@ -3,11 +3,11 @@
 <script src="https://www.desmos.com/api/v1.8/calculator.js?apiKey=dcb31709b452b1cf9dc26972add0fda6"></script>
 
 <div class="page-header">
-  <div class="method-icon" style="background:rgba(199,146,234,0.15);">
-    <i class="bi bi-scissors" style="color:#c792ea;"></i>
+  <div class="method-icon" style="background:rgba(199,146,255,0.15);">
+    <i class="bi bi-scissors" style="color:#c792ff;"></i>
   </div>
   <div>
-    <h2 style="color:#c792ea;">Bairstow — Deflación Completa</h2>
+    <h2 style="color:#c792ff;">Bairstow — Deflación Completa</h2>
     <p>
       Extrae factores cuadráticos (x²−rx−s) iterativamente hasta obtener
       <strong>todas las raíces</strong> del polinomio (reales y complejas).
@@ -60,11 +60,11 @@
         </div>
       </div>
 
-      <div style="background:rgba(199,146,234,0.07); border:1px solid rgba(199,146,234,0.2);
+      <div style="background:rgba(199,146,255,0.07); border:1px solid rgba(199,146,255,0.2);
                   border-radius:var(--radius-sm); padding:10px 14px; margin-bottom:12px;">
         <p style="font-size:0.73rem; color:var(--text-muted); margin:0;">
-          <i class="bi bi-info-circle" style="color:#c792ea;"></i>
-          Solo acepta <strong style="color:#c792ea;">polinomios de grado ≥ 3</strong>.
+          <i class="bi bi-info-circle" style="color:#c792ff;"></i>
+          Solo acepta <strong style="color:#c792ff;">polinomios de grado ≥ 3</strong>.
           Para mejor convergencia, intenta con r₀=s₀=1 primero.
         </p>
       </div>
@@ -90,7 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const mf   = document.getElementById('formula');
   const calc = createDarkDesmos(document.getElementById('desmos'));
   function update() {
-    calc.setExpression({ id:'P', latex:'P(x)=' + (mf.value||'0'), color:'#c792ea' });
+    calc.setExpression({ id:'P', latex:'P(x)=' + (mf.value||'0'), color:'#c792ff' });
   }
   mf.addEventListener('input', update);
   setTimeout(update, 350);

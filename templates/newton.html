@@ -3,11 +3,11 @@
 <script src="https://www.desmos.com/api/v1.8/calculator.js?apiKey=dcb31709b452b1cf9dc26972add0fda6"></script>
 
 <div class="page-header">
-  <div class="method-icon" style="background:rgba(249,123,79,0.15);">
-    <i class="bi bi-lightning-charge" style="color:#f97b4f;"></i>
+  <div class="method-icon" style="background:rgba(255,155,106,0.15);">
+    <i class="bi bi-lightning-charge" style="color:#ff9b6a;"></i>
   </div>
   <div>
-    <h2 style="color:#f97b4f;">Newton-Raphson</h2>
+    <h2 style="color:#ff9b6a;">Newton-Raphson</h2>
     <p>
       Traza la tangente en xᵢ y toma su raíz como xᵢ₊₁ = xᵢ − f(xᵢ)/f'(xᵢ).
       Convergencia <strong>cuadrática</strong>: los dígitos correctos se duplican por iteración.
@@ -57,7 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const mf   = document.getElementById('formula');
   const calc = createDarkDesmos(document.getElementById('desmos'));
   function update() {
-    calc.setExpression({ id:'f', latex:'f(x)=' + (mf.value||'0'), color:'#f97b4f' });
+    calc.setExpression({ id:'f', latex:'f(x)=' + (mf.value||'0'), color:'#ff9b6a' });
   }
   mf.addEventListener('input', update);
   setTimeout(update, 350);

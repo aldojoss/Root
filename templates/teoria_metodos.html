@@ -1,0 +1,1311 @@
+{% extends 'base.html' %}
+{% block contenido %}
+<style>
+  .theory-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+    gap: 18px;
+    align-items: stretch;
+    margin-bottom: 22px;
+  }
+  .theory-panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .theory-panel-body { padding: 18px; }
+  .method-picker {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+    max-height: 420px;
+    overflow: auto;
+    padding-right: 4px;
+  }
+  .method-tab {
+    min-height: 84px;
+    text-align: left;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-input);
+    color: var(--text-secondary);
+    padding: 12px;
+    display: grid;
+    align-content: start;
+    gap: 5px;
+    transition: all var(--transition);
+  }
+  .method-tab:hover {
+    border-color: var(--border-focus);
+    transform: translateY(-1px);
+  }
+  .method-tab.active {
+    border-color: var(--method-color);
+    background: color-mix(in srgb, var(--method-color) 13%, var(--bg-input));
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--method-color) 15%, transparent);
+  }
+  .method-tab strong {
+    color: var(--text-primary);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .method-tab small {
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    line-height: 1.35;
+  }
+  .family-switch {
+    display: inline-flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .method-search {
+    position: relative;
+    margin-bottom: 12px;
+  }
+  .method-search i {
+    position: absolute;
+    left: 13px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    pointer-events: none;
+  }
+  .method-search input {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-input);
+    color: var(--text-primary);
+    padding: 11px 14px 11px 38px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    outline: none;
+  }
+  .method-search input:focus {
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 3px rgba(100,168,255,0.12);
+  }
+  .family-chip {
+    border: 1px solid var(--border);
+    background: var(--ghost-bg);
+    color: var(--text-secondary);
+    border-radius: 999px;
+    padding: 8px 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .family-chip.active {
+    border-color: var(--accent-blue);
+    color: var(--accent-blue);
+    background: rgba(100,168,255,0.1);
+  }
+  .theory-main-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 0.95fr) minmax(360px, 1.05fr);
+    gap: 18px;
+    align-items: start;
+  }
+  .formula-ribbon {
+    border-radius: var(--radius);
+    border: 1px solid color-mix(in srgb, var(--method-color) 42%, var(--border));
+    background: color-mix(in srgb, var(--method-color) 10%, var(--bg-card));
+    padding: 16px 18px;
+    margin-bottom: 14px;
+  }
+  .formula-ribbon .label {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-muted);
+    font-size: 0.64rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .formula-ribbon .formula {
+    color: var(--text-primary);
+    font-size: 1.08rem;
+    overflow-x: auto;
+  }
+  .method-title-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .method-open-link {
+    border: 1px solid var(--border);
+    background: var(--ghost-bg);
+    color: var(--text-secondary);
+    border-radius: var(--radius-sm);
+    padding: 7px 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-decoration: none;
+    text-transform: uppercase;
+  }
+  .method-open-link:hover {
+    border-color: var(--method-color);
+    color: var(--method-color);
+  }
+  .theory-copy {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.68;
+  }
+  .concept-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 10px;
+    margin-top: 14px;
+  }
+  .concept-card {
+    border: 1px solid var(--border);
+    background: var(--bg-input);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+  }
+  .concept-card .label {
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .concept-card p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+    line-height: 1.5;
+  }
+  .learning-list {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .learning-list li {
+    display: flex;
+    gap: 9px;
+    color: var(--text-secondary);
+    font-size: 0.84rem;
+    line-height: 1.48;
+  }
+  .learning-list li i {
+    color: var(--method-color);
+    flex: 0 0 auto;
+    margin-top: 1px;
+  }
+  .stepper-list {
+    counter-reset: theory-step;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 9px;
+  }
+  .stepper-list li {
+    counter-increment: theory-step;
+    border: 1px solid var(--border);
+    background: var(--bg-input);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px 10px 44px;
+    color: var(--text-secondary);
+    font-size: 0.84rem;
+    line-height: 1.45;
+    position: relative;
+  }
+  .stepper-list li::before {
+    content: counter(theory-step);
+    position: absolute;
+    left: 12px;
+    top: 10px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: color-mix(in srgb, var(--method-color) 18%, var(--bg-card));
+    color: var(--method-color);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    font-weight: 800;
+  }
+  .demo-toolbar {
+    display: grid;
+    gap: 12px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--table-head-bg);
+  }
+  .demo-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .demo-controls .btn-nm {
+    min-height: 38px;
+    padding: 8px 13px;
+  }
+  .iteration-control {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 10px;
+    align-items: center;
+  }
+  .iteration-control label,
+  .demo-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-weight: 800;
+  }
+  .iteration-control input[type="range"] {
+    width: 100%;
+    accent-color: var(--method-color);
+  }
+  .demo-canvas-wrap {
+    background: var(--plot-bg);
+    border-bottom: 1px solid var(--border);
+    min-height: 390px;
+  }
+  #methodDemoCanvas {
+    width: 100%;
+    height: 390px;
+    display: block;
+  }
+  .demo-readout {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+    gap: 10px;
+    padding: 14px 16px;
+  }
+  .readout-item {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-input);
+    padding: 10px 12px;
+  }
+  .readout-item .label {
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    font-weight: 800;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+  }
+  .readout-item .value {
+    color: var(--method-color);
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 800;
+    font-size: 0.9rem;
+    word-break: break-word;
+  }
+  .insight-strip {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    max-height: 100%;
+  }
+  .insight {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    background: var(--bg-card);
+  }
+  .insight strong {
+    display: block;
+    color: var(--text-primary);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+  }
+  .insight span {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    line-height: 1.45;
+  }
+  @media (max-width: 1050px) {
+    .theory-hero,
+    .theory-main-grid,
+    .insight-strip {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<div class="page-header">
+  <div class="method-icon" style="background:rgba(100,168,255,0.15);">
+    <i class="bi bi-mortarboard" style="color:var(--accent-blue);"></i>
+  </div>
+  <div>
+    <h2 style="color:var(--accent-blue);">Teoría Interactiva de Métodos</h2>
+    <p>
+      Un laboratorio visual para entender cuándo usar cada método, qué fórmula mueve
+      la iteración y por qué puede converger o fallar.
+    </p>
+  </div>
+</div>
+
+<div class="theory-hero">
+  <div class="theory-panel">
+    <div class="card-nm-header"><i class="bi bi-compass"></i> Explora por familia</div>
+    <div class="theory-panel-body">
+      <div class="family-switch" aria-label="Filtro de familia">
+        {% for familia in familias %}
+          <button class="family-chip {% if loop.first %}active{% endif %}" type="button" data-family-filter="{{ familia.id }}">
+            <i class="bi {{ familia.icono }}"></i> {{ familia.nombre }}
+          </button>
+        {% endfor %}
+      </div>
+      <div class="method-search">
+        <i class="bi bi-search"></i>
+        <input id="methodSearch" type="search" placeholder="Buscar método, familia o idea...">
+      </div>
+      <div class="method-picker">
+        {% for metodo in metodos %}
+          <button class="method-tab {% if loop.first %}active{% endif %}"
+                  type="button"
+                  data-method-id="{{ metodo.id }}"
+                  data-family="{{ metodo.familia }}"
+                  data-search="{{ (metodo.nombre ~ ' ' ~ metodo.subtitulo ~ ' ' ~ metodo.familia ~ ' ' ~ metodo.idea)|lower }}"
+                  style="--method-color: {{ metodo.color }};">
+            <strong><i class="bi {{ metodo.icono }}"></i> {{ metodo.nombre }}</strong>
+            <small>{{ metodo.subtitulo }}</small>
+          </button>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  <div class="insight-strip">
+    {% for familia in familias if familia.id != 'todos' %}
+      <div class="insight">
+        <strong><i class="bi {{ familia.icono }}"></i> {{ familia.nombre }}</strong>
+        <span>{{ familia.resumen }}</span>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="theory-main-grid" id="theoryApp" style="--method-color: {{ metodos[0].color }};">
+  <section class="theory-panel">
+    <div class="card-nm-header method-title-line">
+      <span><i id="methodIcon" class="bi {{ metodos[0].icono }}"></i> <span id="methodName">{{ metodos[0].nombre }}</span></span>
+      <a id="methodRouteLink" class="method-open-link" href="{{ metodos[0].ruta }}">
+        <i class="bi bi-box-arrow-up-right"></i> Probar método
+      </a>
+    </div>
+    <div class="theory-panel-body">
+      <div class="formula-ribbon">
+        <div class="label">Fórmula central</div>
+        <div class="formula" id="methodFormula">\( {{ metodos[0].formula|safe }} \)</div>
+      </div>
+      <p class="theory-copy" id="methodIdea">{{ metodos[0].idea }}</p>
+
+      <div class="concept-grid">
+        <div class="concept-card">
+          <div class="label">Condición</div>
+          <p id="methodCondition">{{ metodos[0].condicion|safe }}</p>
+        </div>
+        <div class="concept-card">
+          <div class="label">Convergencia</div>
+          <p id="methodConvergence">{{ metodos[0].convergencia|safe }}</p>
+        </div>
+      </div>
+
+      <div class="section-label mt-4"><i class="bi bi-list-ol"></i> Cómo funciona</div>
+      <ol class="stepper-list" id="methodSteps">
+        {% for paso in metodos[0].pasos %}
+          <li>{{ paso|safe }}</li>
+        {% endfor %}
+      </ol>
+
+      <div class="row g-3 mt-2">
+        <div class="col-lg-6">
+          <div class="section-label"><i class="bi bi-check2-circle"></i> Fortalezas</div>
+          <ul class="learning-list" id="methodStrengths">
+            {% for item in metodos[0].fortalezas %}
+              <li><i class="bi bi-check-circle"></i><span>{{ item }}</span></li>
+            {% endfor %}
+          </ul>
+        </div>
+        <div class="col-lg-6">
+          <div class="section-label"><i class="bi bi-exclamation-triangle"></i> Cuidado con</div>
+          <ul class="learning-list" id="methodRisks">
+            {% for item in metodos[0].riesgos %}
+              <li><i class="bi bi-exclamation-circle"></i><span>{{ item }}</span></li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="theory-panel">
+    <div class="demo-toolbar">
+      <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap">
+        <div>
+          <div class="demo-badge">Laboratorio visual</div>
+          <div class="theory-copy" style="margin-top:3px;" id="demoSubtitle">
+            Observa cómo el intervalo se encoge o cómo las rectas generan nuevas aproximaciones.
+          </div>
+        </div>
+        <div class="demo-controls">
+          <button type="button" class="btn-nm btn-primary-nm" id="playDemo">
+            <i class="bi bi-play-fill"></i> Reproducir
+          </button>
+          <button type="button" class="btn-nm btn-ghost-nm" id="resetDemo">
+            <i class="bi bi-arrow-counterclockwise"></i> Reiniciar
+          </button>
+        </div>
+      </div>
+      <div class="iteration-control">
+        <label for="iterationRange">Paso</label>
+        <input id="iterationRange" type="range" min="0" max="8" value="0">
+        <span class="demo-badge" id="iterationBadge">0/8</span>
+      </div>
+    </div>
+    <div class="demo-canvas-wrap">
+      <canvas id="methodDemoCanvas" width="900" height="440"></canvas>
+    </div>
+    <div class="demo-readout">
+      <div class="readout-item">
+        <div class="label">Modelo</div>
+        <div class="value" id="readoutFunction">f(x) = x³ - x - 2</div>
+      </div>
+      <div class="readout-item">
+        <div class="label">Aproximación</div>
+        <div class="value" id="readoutApprox">-</div>
+      </div>
+      <div class="readout-item">
+        <div class="label">Error / intervalo</div>
+        <div class="value" id="readoutError">-</div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script type="application/json" id="theoryData">{{ metodos|tojson }}</script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const methods = JSON.parse(document.getElementById('theoryData').textContent);
+  const byId = new Map(methods.map((method) => [method.id, method]));
+  const app = document.getElementById('theoryApp');
+  const tabs = [...document.querySelectorAll('.method-tab')];
+  const familyButtons = [...document.querySelectorAll('[data-family-filter]')];
+  const methodSearch = document.getElementById('methodSearch');
+  const range = document.getElementById('iterationRange');
+  const badge = document.getElementById('iterationBadge');
+  const canvas = document.getElementById('methodDemoCanvas');
+  const ctx = canvas.getContext('2d');
+  const playBtn = document.getElementById('playDemo');
+  const resetBtn = document.getElementById('resetDemo');
+  const methodRouteLink = document.getElementById('methodRouteLink');
+  const readoutFunction = document.getElementById('readoutFunction');
+  const readoutApprox = document.getElementById('readoutApprox');
+  const readoutError = document.getElementById('readoutError');
+  let active = methods[0];
+  let timer = null;
+
+  const fns = {
+    'x^3 - x - 2': (x) => x*x*x - x - 2,
+    'x^2 - 2': (x) => x*x - 2,
+    'cos(x)': (x) => Math.cos(x),
+  };
+  const dFns = {
+    'x^2 - 2': (x) => 2 * x,
+  };
+
+  function setText(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+  }
+
+  function setHTML(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = value;
+  }
+
+  function setList(id, items, icon) {
+    const target = document.getElementById(id);
+    target.innerHTML = '';
+    items.forEach((item) => {
+      const li = document.createElement('li');
+      li.innerHTML = `<i class="bi ${icon}"></i><span>${item}</span>`;
+      target.appendChild(li);
+    });
+  }
+
+  function setSteps(items) {
+    const target = document.getElementById('methodSteps');
+    target.innerHTML = '';
+    items.forEach((item) => {
+      const li = document.createElement('li');
+      li.innerHTML = item;
+      target.appendChild(li);
+    });
+  }
+
+  function renderMath() {
+    if (window.MathJax && window.MathJax.typesetPromise) {
+      window.MathJax.typesetPromise();
+    }
+  }
+
+  function activateMethod(id) {
+    active = byId.get(id) || methods[0];
+    app.style.setProperty('--method-color', active.color);
+    tabs.forEach((tab) => {
+      tab.classList.toggle('active', tab.dataset.methodId === active.id);
+    });
+    const icon = document.getElementById('methodIcon');
+    icon.className = `bi ${active.icono}`;
+    setText('methodName', active.nombre);
+    methodRouteLink.href = active.ruta;
+    document.getElementById('methodFormula').innerHTML = `\\( ${active.formula} \\)`;
+    setText('methodIdea', active.idea);
+    setHTML('methodCondition', active.condicion);
+    setHTML('methodConvergence', active.convergencia);
+    setSteps(active.pasos);
+    setList('methodStrengths', active.fortalezas, 'bi-check-circle');
+    setList('methodRisks', active.riesgos, 'bi-exclamation-circle');
+    setText('demoSubtitle', subtitleFor(active.demo));
+    range.max = active.demo.iteraciones ?? Math.max(0, (active.demo.etapas || []).length - 1);
+    range.value = 0;
+    stopTimer();
+    draw();
+    renderMath();
+  }
+
+  function subtitleFor(demo) {
+    const type = demo.tipo;
+    if (demo.etapas && demo.etapas.length) return demo.etapas[0];
+    if (type === 'bracket') return 'El intervalo se parte por la mitad y conserva el cambio de signo.';
+    if (type === 'false-position') return 'La recta entre extremos predice dónde cortar el eje x.';
+    if (type === 'newton') return 'La tangente en xᵢ genera la siguiente aproximación.';
+    if (type === 'secant') return 'Dos puntos previos construyen una secante sin derivar.';
+    if (type === 'fixed-point') return 'La telaraña alterna entre y=g(x) y la recta y=x.';
+    return 'Mueve el paso para ver las etapas conceptuales del método.';
+  }
+
+  function stopTimer() {
+    if (timer) clearInterval(timer);
+    timer = null;
+    playBtn.innerHTML = '<i class="bi bi-play-fill"></i> Reproducir';
+  }
+
+  function startTimer() {
+    stopTimer();
+    playBtn.innerHTML = '<i class="bi bi-pause-fill"></i> Pausar';
+    timer = setInterval(() => {
+      const next = Number(range.value) + 1;
+      if (next > Number(range.max)) {
+        stopTimer();
+        return;
+      }
+      range.value = next;
+      draw();
+    }, 760);
+  }
+
+  function methodPoints(method, step) {
+    const demo = method.demo;
+    if (demo.tipo === 'bracket') return bisectionState(demo, step);
+    if (demo.tipo === 'false-position') return falsePositionState(demo, step);
+    if (demo.tipo === 'newton') return newtonState(demo, step);
+    if (demo.tipo === 'secant') return secantState(demo, step);
+    if (demo.tipo === 'fixed-point') return fixedPointState(demo, step);
+    return conceptState(demo, step);
+  }
+
+  function conceptState(demo, step) {
+    const stages = demo.etapas || ['Revisar la idea central del método.'];
+    const index = Math.min(step, stages.length - 1);
+    return { history: stages, current: { index, text: stages[index] } };
+  }
+
+  function bisectionState(demo, step) {
+    const fn = fns[demo.funcion];
+    let xl = demo.xl;
+    let xu = demo.xu;
+    let xr = (xl + xu) / 2;
+    const history = [];
+    for (let i = 0; i <= demo.iteraciones; i += 1) {
+      xr = (xl + xu) / 2;
+      history.push({ xl, xu, xr, fxr: fn(xr), error: Math.abs(xu - xl) / 2 });
+      if (fn(xl) * fn(xr) < 0) xu = xr;
+      else xl = xr;
+    }
+    return { history, current: history[Math.min(step, history.length - 1)] };
+  }
+
+  function falsePositionState(demo, step) {
+    const fn = fns[demo.funcion];
+    let xl = demo.xl;
+    let xu = demo.xu;
+    let xr = xl;
+    const history = [];
+    for (let i = 0; i <= demo.iteraciones; i += 1) {
+      const fl = fn(xl);
+      const fu = fn(xu);
+      xr = xu - fu * (xl - xu) / (fl - fu);
+      history.push({ xl, xu, xr, fl, fu, fxr: fn(xr), error: Math.abs(xu - xl) });
+      if (fl * fn(xr) < 0) xu = xr;
+      else xl = xr;
+    }
+    return { history, current: history[Math.min(step, history.length - 1)] };
+  }
+
+  function newtonState(demo, step) {
+    const fn = fns[demo.funcion];
+    const df = dFns[demo.funcion];
+    let x = demo.x0;
+    const history = [{ index: 0, xi: x, next: x - fn(x) / df(x), fxi: fn(x), slope: df(x), error: Math.abs(fn(x)) }];
+    for (let i = 1; i <= demo.iteraciones; i += 1) {
+      x = history[i - 1].next;
+      history.push({ index: i, xi: x, next: x - fn(x) / df(x), fxi: fn(x), slope: df(x), error: Math.abs(fn(x)) });
+    }
+    return { history, current: history[Math.min(step, history.length - 1)] };
+  }
+
+  function secantState(demo, step) {
+    const fn = fns[demo.funcion];
+    let x0 = demo.x0;
+    let x1 = demo.x1;
+    const history = [];
+    for (let i = 0; i <= demo.iteraciones; i += 1) {
+      const f0 = fn(x0);
+      const f1 = fn(x1);
+      const next = x1 - f1 * (x1 - x0) / (f1 - f0);
+      history.push({ leftIndex: i, rightIndex: i + 1, nextIndex: i + 2, x0, x1, next, f0, f1, error: Math.abs(next - x1) });
+      x0 = x1;
+      x1 = next;
+    }
+    return { history, current: history[Math.min(step, history.length - 1)] };
+  }
+
+  function fixedPointState(demo, step) {
+    const g = fns[demo.funcion];
+    let x = demo.x0;
+    const history = [{ x, y: g(x), error: Math.abs(g(x) - x) }];
+    for (let i = 1; i <= demo.iteraciones; i += 1) {
+      x = history[i - 1].y;
+      history.push({ x, y: g(x), error: Math.abs(g(x) - x) });
+    }
+    return { history, current: history[Math.min(step, history.length - 1)] };
+  }
+
+  function boundsFor(method) {
+    if (method.demo.tipo === 'fixed-point') return { xmin: -0.2, xmax: 1.25, ymin: -0.2, ymax: 1.25 };
+    if (method.demo.funcion === 'x^3 - x - 2') return { xmin: 0.6, xmax: 2.25, ymin: -2.8, ymax: 4.2 };
+    return { xmin: 0.6, xmax: 2.2, ymin: -1.25, ymax: 2.8 };
+  }
+
+  function drawAxes(map, bounds) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--plot-bg') || '#0d121c';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = 'rgba(141,152,184,0.25)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 8; i += 1) {
+      const x = canvas.width * i / 8;
+      const y = canvas.height * i / 8;
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+    }
+    ctx.strokeStyle = 'rgba(241,245,255,0.72)';
+    ctx.lineWidth = 1.4;
+    if (bounds.ymin < 0 && bounds.ymax > 0) {
+      const y0 = map.y(0);
+      ctx.beginPath(); ctx.moveTo(0, y0); ctx.lineTo(canvas.width, y0); ctx.stroke();
+    }
+    if (bounds.xmin < 0 && bounds.xmax > 0) {
+      const x0 = map.x(0);
+      ctx.beginPath(); ctx.moveTo(x0, 0); ctx.lineTo(x0, canvas.height); ctx.stroke();
+    }
+  }
+
+  function drawFunction(map, bounds, fn, color, label) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    let started = false;
+    for (let px = 0; px <= canvas.width; px += 2) {
+      const x = bounds.xmin + (px / canvas.width) * (bounds.xmax - bounds.xmin);
+      const y = fn(x);
+      if (!Number.isFinite(y)) { started = false; continue; }
+      const py = map.y(y);
+      if (!started) { ctx.moveTo(px, py); started = true; }
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+    ctx.fillStyle = color;
+    ctx.font = '700 14px JetBrains Mono, monospace';
+    ctx.fillText(label, 18, 26);
+  }
+
+  function roundedRect(x, y, width, height, radius) {
+    const r = Math.min(radius, width / 2, height / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + width - r, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+    ctx.lineTo(x + width, y + height - r);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+    ctx.lineTo(x + r, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+  }
+
+  function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+  }
+
+  function drawLabel(px, py, label, color, options = {}) {
+    if (!label) return;
+    const dx = options.dx ?? 12;
+    const dy = options.dy ?? -16;
+    ctx.save();
+    ctx.font = '800 14px JetBrains Mono, monospace';
+    const paddingX = 8;
+    const paddingY = 5;
+    const metrics = ctx.measureText(label);
+    const width = metrics.width + paddingX * 2;
+    const height = 24;
+    let lx = clamp(px + dx, 8, canvas.width - width - 8);
+    let ly = clamp(py + dy - height / 2, 8, canvas.height - height - 8);
+
+    ctx.strokeStyle = 'rgba(241,245,255,0.32)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(px, py);
+    ctx.lineTo(lx + width / 2, ly + height / 2);
+    ctx.stroke();
+
+    roundedRect(lx, ly, width, height, 8);
+    ctx.fillStyle = 'rgba(8,12,24,0.9)';
+    ctx.fill();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.4;
+    ctx.stroke();
+    ctx.fillStyle = color;
+    ctx.fillText(label, lx + paddingX, ly + 16);
+    ctx.restore();
+  }
+
+  function drawPoint(map, x, y, color, label, options = {}) {
+    const px = map.x(x);
+    const py = map.y(y);
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(px, py, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.86)';
+    ctx.lineWidth = 1.4;
+    ctx.stroke();
+    drawLabel(px, py, label, color, options);
+  }
+
+  function drawLine(map, x1, y1, x2, y2, color, dashed = false) {
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    if (dashed) ctx.setLineDash([7, 6]);
+    ctx.beginPath();
+    ctx.moveTo(map.x(x1), map.y(y1));
+    ctx.lineTo(map.x(x2), map.y(y2));
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawPanel(x, y, w, h, title, body, color, activeCard = false) {
+    ctx.save();
+    roundedRect(x, y, w, h, 12);
+    ctx.fillStyle = activeCard ? 'rgba(100,168,255,0.14)' : 'rgba(12,18,32,0.84)';
+    ctx.fill();
+    ctx.strokeStyle = activeCard ? color : 'rgba(141,152,184,0.28)';
+    ctx.lineWidth = activeCard ? 2.2 : 1.2;
+    ctx.stroke();
+    ctx.fillStyle = activeCard ? color : 'rgba(220,229,255,0.92)';
+    ctx.font = '800 15px JetBrains Mono, monospace';
+    ctx.fillText(title, x + 16, y + 28);
+    ctx.fillStyle = 'rgba(220,229,255,0.78)';
+    ctx.font = '500 13px Inter, sans-serif';
+    wrapText(body, x + 16, y + 54, w - 32, 18, 3);
+    ctx.restore();
+  }
+
+  function wrapText(text, x, y, maxWidth, lineHeight, maxLines = 3) {
+    const words = String(text).split(/\s+/);
+    let line = '';
+    let lines = 0;
+    for (let i = 0; i < words.length; i += 1) {
+      const test = line ? `${line} ${words[i]}` : words[i];
+      if (ctx.measureText(test).width > maxWidth && line) {
+        ctx.fillText(line, x, y + lines * lineHeight);
+        line = words[i];
+        lines += 1;
+        if (lines >= maxLines) return;
+      } else {
+        line = test;
+      }
+    }
+    if (line && lines < maxLines) ctx.fillText(line, x, y + lines * lineHeight);
+  }
+
+  function drawArrow(x1, y1, x2, y2, color) {
+    const angle = Math.atan2(y2 - y1, x2 - x1);
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(x2 - 11 * Math.cos(angle - Math.PI / 6), y2 - 11 * Math.sin(angle - Math.PI / 6));
+    ctx.lineTo(x2 - 11 * Math.cos(angle + Math.PI / 6), y2 - 11 * Math.sin(angle + Math.PI / 6));
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawStageCards(demo, step, color) {
+    const stages = demo.etapas || [];
+    const cols = 3;
+    const rows = Math.ceil(stages.length / cols);
+    const gap = 14;
+    const cardW = (canvas.width - 70 - gap * (cols - 1)) / cols;
+    const cardH = rows > 2 ? 78 : 92;
+    const startX = 35;
+    const startY = canvas.height - rows * cardH - (rows - 1) * gap - 24;
+    stages.forEach((stage, index) => {
+      const col = index % cols;
+      const row = Math.floor(index / cols);
+      drawPanel(
+        startX + col * (cardW + gap),
+        startY + row * (cardH + gap),
+        cardW,
+        cardH,
+        `Paso ${index + 1}`,
+        stage,
+        color,
+        index === step
+      );
+    });
+  }
+
+  function drawMatrix(x, y, rows, cols, values, color, highlight = []) {
+    const cellW = 54;
+    const cellH = 38;
+    ctx.save();
+    ctx.font = '800 14px JetBrains Mono, monospace';
+    for (let r = 0; r < rows; r += 1) {
+      for (let c = 0; c < cols; c += 1) {
+        const isHot = highlight.some(([hr, hc]) => hr === r && hc === c);
+        roundedRect(x + c * cellW, y + r * cellH, cellW - 5, cellH - 5, 7);
+        ctx.fillStyle = isHot ? 'rgba(100,168,255,0.2)' : 'rgba(10,16,28,0.88)';
+        ctx.fill();
+        ctx.strokeStyle = isHot ? color : 'rgba(141,152,184,0.28)';
+        ctx.stroke();
+        ctx.fillStyle = isHot ? color : 'rgba(220,229,255,0.9)';
+        const text = values[r]?.[c] ?? '';
+        ctx.fillText(text, x + c * cellW + 16, y + r * cellH + 23);
+      }
+    }
+    ctx.restore();
+  }
+
+  function drawConceptAxes() {
+    const bounds = { xmin: 0, xmax: 6, ymin: 0, ymax: 5 };
+    const map = {
+      x: (x) => 58 + ((x - bounds.xmin) / (bounds.xmax - bounds.xmin)) * (canvas.width - 116),
+      y: (y) => 292 - ((y - bounds.ymin) / (bounds.ymax - bounds.ymin)) * 220,
+    };
+    ctx.strokeStyle = 'rgba(141,152,184,0.28)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 6; i += 1) {
+      const x = map.x(i);
+      ctx.beginPath(); ctx.moveTo(x, 72); ctx.lineTo(x, 292); ctx.stroke();
+    }
+    for (let i = 0; i <= 5; i += 1) {
+      const y = map.y(i);
+      ctx.beginPath(); ctx.moveTo(58, y); ctx.lineTo(canvas.width - 58, y); ctx.stroke();
+    }
+    ctx.strokeStyle = 'rgba(241,245,255,0.72)';
+    ctx.beginPath(); ctx.moveTo(58, 292); ctx.lineTo(canvas.width - 58, 292); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(58, 292); ctx.lineTo(58, 72); ctx.stroke();
+    return map;
+  }
+
+  function drawDataScene(type, step, color) {
+    const map = drawConceptAxes();
+    const points = [[0.8, 1.1], [1.7, 2.4], [2.8, 2.0], [3.8, 3.8], [5.0, 4.2]];
+    points.forEach((p, i) => drawPoint(map, p[0], p[1], color, i === Math.min(step, points.length - 1) ? `P${subscriptNumber(i)}` : ''));
+    if (type === 'regression') {
+      drawLine(map, 0.6, 1.0, 5.4, 4.55, '#ffd98a');
+      points.slice(0, Math.min(step + 1, points.length)).forEach((p) => {
+        const yLine = 0.55 + 0.74 * p[0];
+        drawLine(map, p[0], p[1], p[0], yLine, '#ff8658', true);
+      });
+      ctx.fillStyle = '#ffd98a';
+      ctx.font = '800 15px JetBrains Mono, monospace';
+      ctx.fillText('recta de mínimos cuadrados', 82, 52);
+      return;
+    }
+    if (type === 'splines') {
+      ctx.strokeStyle = '#ffd98a';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(map.x(points[0][0]), map.y(points[0][1]));
+      for (let i = 1; i < points.length; i += 1) {
+        const prev = points[i - 1];
+        const p = points[i];
+        ctx.bezierCurveTo(map.x(prev[0] + 0.35), map.y(prev[1] + 0.2), map.x(p[0] - 0.35), map.y(p[1] - 0.2), map.x(p[0]), map.y(p[1]));
+      }
+      ctx.stroke();
+      ctx.fillStyle = '#ffd98a';
+      ctx.font = '800 15px JetBrains Mono, monospace';
+      ctx.fillText('cúbicos por tramos', 82, 52);
+      return;
+    }
+    ctx.strokeStyle = type === 'interpolation-lagrange' ? '#facc15' : '#34d399';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(map.x(points[0][0]), map.y(points[0][1]));
+    points.forEach((p, i) => {
+      if (i === 0) return;
+      const prev = points[i - 1];
+      ctx.quadraticCurveTo(map.x((prev[0] + p[0]) / 2), map.y(prev[1] + (i % 2 ? 0.65 : -0.45)), map.x(p[0]), map.y(p[1]));
+    });
+    ctx.stroke();
+    ctx.fillStyle = type === 'interpolation-lagrange' ? '#facc15' : '#34d399';
+    ctx.font = '800 15px JetBrains Mono, monospace';
+    ctx.fillText(type === 'interpolation-lagrange' ? 'suma de bases Lᵢ(x)' : 'tabla de diferencias divididas', 82, 52);
+  }
+
+  function drawTaylorScene(step, color) {
+    const bounds = { xmin: -1.5, xmax: 1.5, ymin: -0.3, ymax: 4.3 };
+    const map = {
+      x: (x) => 70 + ((x - bounds.xmin) / (bounds.xmax - bounds.xmin)) * (canvas.width - 140),
+      y: (y) => 312 - ((y - bounds.ymin) / (bounds.ymax - bounds.ymin)) * 245,
+    };
+    drawAxes(map, bounds);
+    drawFunction(map, bounds, Math.exp, color, 'f(x)=eˣ');
+    const order = Math.min(step, 5);
+    const poly = (x) => {
+      let sum = 0;
+      let fact = 1;
+      let pow = 1;
+      for (let k = 0; k <= order; k += 1) {
+        if (k > 0) { fact *= k; pow *= x; }
+        sum += pow / fact;
+      }
+      return sum;
+    };
+    drawFunction(map, bounds, poly, '#ffd98a', `P${subscriptNumber(order)}(x)`);
+    drawPoint(map, 0, 1, '#48ddb0', 'a=0', { dx: 14, dy: -20 });
+  }
+
+  function drawHornerScene(step, color, withNewton = false) {
+    const coeffs = ['1', '-6', '11', '-6'];
+    ctx.fillStyle = 'rgba(220,229,255,0.86)';
+    ctx.font = '800 18px JetBrains Mono, monospace';
+    ctx.fillText(withNewton ? 'Horner evalúa P y P′ antes de corregir x' : 'Esquema sintético: bajar, multiplicar, sumar', 38, 48);
+    coeffs.forEach((coef, index) => {
+      drawPanel(54 + index * 130, 92, 105, 78, `a${subscriptNumber(3 - index)}`, coef, color, index <= step);
+      if (index < coeffs.length - 1) drawArrow(160 + index * 130, 130, 178 + index * 130, 130, '#ffd98a');
+    });
+    if (withNewton) {
+      drawPanel(600, 78, 230, 92, 'Corrección', 'xₙ₊₁ = xₙ - P(xₙ)/P′(xₙ)', color, true);
+      drawArrow(555, 130, 600, 124, color);
+    } else {
+      drawPanel(600, 78, 230, 92, 'Residuo', 'Último acumulado = P(x₀)', color, step >= 3);
+    }
+  }
+
+  function drawMullerScene(step, color) {
+    const map = drawConceptAxes();
+    const pts = [[1, 3.7], [2.5, 1.15], [4.5, 2.9]];
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(map.x(0.7), map.y(4.2));
+    ctx.quadraticCurveTo(map.x(2.8), map.y(0.25), map.x(5.5), map.y(3.6));
+    ctx.stroke();
+    pts.forEach((p, i) => drawPoint(map, p[0], p[1], color, `x${subscriptNumber(i)}`));
+    drawPoint(map, 3.35, 0, '#48ddb0', `x${subscriptNumber(step + 3)}`, { dx: 12, dy: 24 });
+    drawLine(map, 3.35, 0, 3.35, 1.0, '#48ddb0', true);
+  }
+
+  function drawBairstowScene(step, color) {
+    drawPanel(45, 86, 220, 100, 'P(x)', 'Polinomio original', color, step === 0);
+    drawArrow(272, 136, 340, 136, '#ffd98a');
+    drawPanel(350, 86, 230, 100, 'x² - rx - s', 'Factor cuadrático ajustable', color, step > 0 && step < 4);
+    drawArrow(590, 136, 662, 136, '#ffd98a');
+    drawPanel(675, 86, 180, 100, 'Raíces', 'Reales o complejas conjugadas', color, step >= 4);
+    drawPanel(260, 230, 380, 82, 'Residuo', 'Si el residuo no es cero, se corrigen r y s', '#ff8658', step >= 2 && step < 5);
+  }
+
+  function drawMatrixScene(type, step, color) {
+    const values = [
+      ['2', '1', '-1', '8'],
+      ['0', '1/2', '1/2', '1'],
+      ['0', '0', '-1', '1'],
+    ];
+    const highlight = step === 0 ? [[0, 0]] : step === 1 ? [[1, 1]] : step === 2 ? [[2, 2]] : [[0, 3], [1, 3], [2, 3]];
+    drawMatrix(62, 82, 3, 4, values, color, highlight);
+    if (type === 'matrix-reduction') {
+      drawArrow(340, 140, 430, 140, '#ffd98a');
+      drawMatrix(455, 82, 3, 4, [['1', '0', '0', 'x'], ['0', '1', '0', 'y'], ['0', '0', '1', 'z']], color, highlight);
+    } else {
+      drawPanel(455, 88, 330, 110, 'Sustitución', 'Primero z, luego y, finalmente x.', color, step >= 3);
+    }
+  }
+
+  function drawLUScene(step, color) {
+    drawMatrix(72, 86, 3, 3, [['a₁₁', 'a₁₂', 'a₁₃'], ['a₂₁', 'a₂₂', 'a₂₃'], ['a₃₁', 'a₃₂', 'a₃₃']], color, [[step % 3, step % 3]]);
+    drawArrow(265, 142, 345, 142, '#ffd98a');
+    drawMatrix(370, 86, 3, 3, [['1', '0', '0'], ['l₂₁', '1', '0'], ['l₃₁', 'l₃₂', '1']], '#48ddb0', [[1, 0], [2, 0], [2, 1]]);
+    drawMatrix(585, 86, 3, 3, [['u₁₁', 'u₁₂', 'u₁₃'], ['0', 'u₂₂', 'u₂₃'], ['0', '0', 'u₃₃']], '#ffd98a', [[0, 0], [1, 1], [2, 2]]);
+    drawPanel(280, 250, 335, 70, 'Luego', 'Resolver Ly=b y después Ux=y', color, step >= 3);
+  }
+
+  function drawIterativeScene(step, color, seidel = false) {
+    const y = 130;
+    drawPanel(55, y - 42, 190, 86, 'Semilla', 'x⁽⁰⁾ = (0,0,0)', color, step === 0);
+    drawArrow(250, y, 330, y, '#ffd98a');
+    drawPanel(340, y - 42, 230, 86, seidel ? 'Actualizar en cadena' : 'Actualizar en paralelo', seidel ? 'Usa valores nuevos al instante' : 'Usa solo valores de la vuelta anterior', color, step > 0 && step < 4);
+    drawArrow(575, y, 655, y, '#ffd98a');
+    drawPanel(665, y - 42, 180, 86, 'Error', '||x⁽ᵏ⁺¹⁾-x⁽ᵏ⁾||', color, step >= 4);
+    const bars = [110, 78, 48, 28, 14];
+    bars.forEach((h, i) => {
+      ctx.fillStyle = i <= step ? color : 'rgba(141,152,184,0.18)';
+      roundedRect(180 + i * 60, 295 - h, 34, h, 8);
+      ctx.fill();
+    });
+    ctx.fillStyle = 'rgba(220,229,255,0.8)';
+    ctx.font = '800 13px JetBrains Mono, monospace';
+    ctx.fillText('error decreciendo si ρ(T)<1', 180, 318);
+  }
+
+  function drawNewtonSystemScene(step, color) {
+    const root = { x: 620, y: 168 };
+    const path = [
+      { x: 210, y: 290 },
+      { x: 350, y: 235 },
+      { x: 455, y: 196 },
+      { x: 545, y: 176 },
+      root,
+    ];
+    ctx.strokeStyle = 'rgba(141,152,184,0.22)';
+    ctx.lineWidth = 2;
+    for (let r = 30; r <= 145; r += 28) {
+      ctx.beginPath();
+      ctx.ellipse(root.x, root.y, r * 1.55, r, -0.25, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    path.slice(0, Math.min(step + 2, path.length)).forEach((p, i, arr) => {
+      drawLabel(p.x, p.y, i === arr.length - 1 ? 'x⁽ᵏ⁺¹⁾' : `x⁽${i}⁾`, i === arr.length - 1 ? '#48ddb0' : color);
+      ctx.fillStyle = i === arr.length - 1 ? '#48ddb0' : color;
+      ctx.beginPath(); ctx.arc(p.x, p.y, 7, 0, Math.PI * 2); ctx.fill();
+      if (i > 0) drawArrow(arr[i - 1].x, arr[i - 1].y, p.x, p.y, '#ffd98a');
+    });
+    drawPanel(55, 70, 220, 76, 'Jy = F', 'Resolver corrección lineal', color, step >= 2);
+  }
+
+  function drawConceptDemo(method, step, state) {
+    const color = method.color;
+    const demo = method.demo;
+    const stage = state.text || '';
+    drawAxes({
+      x: (x) => x,
+      y: (y) => y,
+    }, { xmin: 1, xmax: -1, ymin: 1, ymax: -1 });
+
+    if (demo.tipo === 'taylor') drawTaylorScene(step, color);
+    else if (demo.tipo === 'horner') drawHornerScene(step, color, false);
+    else if (demo.tipo === 'horner-newton') drawHornerScene(step, color, true);
+    else if (demo.tipo === 'muller') drawMullerScene(step, color);
+    else if (demo.tipo === 'bairstow') drawBairstowScene(step, color);
+    else if (demo.tipo === 'matrix') drawMatrixScene('matrix', step, color);
+    else if (demo.tipo === 'matrix-reduction') drawMatrixScene('matrix-reduction', step, color);
+    else if (demo.tipo === 'lu') drawLUScene(step, color);
+    else if (demo.tipo === 'iterative-linear') drawIterativeScene(step, color, method.id === 'gauss_seidel');
+    else if (demo.tipo === 'newton-system') drawNewtonSystemScene(step, color);
+    else if (['interpolation-newton', 'interpolation-lagrange', 'splines', 'regression'].includes(demo.tipo)) drawDataScene(demo.tipo, step, color);
+    else drawStageCards(demo, step, color);
+
+    if (!['taylor', 'horner', 'horner-newton', 'muller', 'bairstow', 'matrix', 'matrix-reduction', 'lu', 'iterative-linear', 'newton-system', 'interpolation-newton', 'interpolation-lagrange', 'splines', 'regression'].includes(demo.tipo)) {
+      drawStageCards(demo, step, color);
+    }
+    ctx.fillStyle = 'rgba(220,229,255,0.92)';
+    ctx.font = '800 18px JetBrains Mono, monospace';
+    ctx.fillText(method.nombre, 38, 42);
+    ctx.fillStyle = color;
+    ctx.font = '800 14px JetBrains Mono, monospace';
+    ctx.fillText(`Paso ${step + 1}/${Number(range.max) + 1}`, canvas.width - 145, 42);
+    setText('demoSubtitle', stage);
+    readoutFunction.textContent = demo.modelo || method.nombre;
+    readoutApprox.textContent = `Paso ${step + 1}: ${stage.split('.')[0]}`;
+    readoutError.textContent = method.familia === 'datos' ? 'Clave: no extrapolar sin criterio' : 'Clave: revisar condiciones';
+    badge.textContent = `${step}/${range.max}`;
+  }
+
+  function draw() {
+    const step = Number(range.value);
+    const state = methodPoints(active, step);
+    const current = state.current;
+    const bounds = boundsFor(active);
+    const map = {
+      x: (x) => ((x - bounds.xmin) / (bounds.xmax - bounds.xmin)) * canvas.width,
+      y: (y) => canvas.height - ((y - bounds.ymin) / (bounds.ymax - bounds.ymin)) * canvas.height,
+    };
+    const color = active.color;
+    const rootDemoTypes = ['fixed-point', 'bracket', 'false-position', 'newton', 'secant'];
+    if (!rootDemoTypes.includes(active.demo.tipo)) {
+      drawConceptDemo(active, step, current);
+      return;
+    }
+    const fn = fns[active.demo.funcion];
+    drawAxes(map, bounds);
+
+    if (active.demo.tipo === 'fixed-point') {
+      drawFunction(map, bounds, (x) => x, 'rgba(241,245,255,0.62)', 'y=x');
+      drawFunction(map, bounds, fn, color, 'g(x) = cos(x)');
+      let prevX = active.demo.x0;
+      for (let i = 0; i <= step; i += 1) {
+        const y = fn(prevX);
+        drawLine(map, prevX, prevX, prevX, y, color);
+        drawLine(map, prevX, y, y, y, '#48ddb0');
+        drawPoint(map, prevX, y, color, i === step ? xLabel(i) : '', { dx: 14, dy: -18 });
+        prevX = y;
+      }
+      readoutFunction.textContent = 'g(x) = cos(x), buscar x = g(x)';
+      readoutApprox.textContent = `${xLabel(step + 1)} ≈ ${fmt(current.y)}`;
+      readoutError.textContent = `|g(${xLabel(step)}) - ${xLabel(step)}| ≈ ${fmt(current.error)}`;
+    } else {
+      drawFunction(map, bounds, fn, color, `f(x) = ${prettyExpression(active.demo.funcion)}`);
+      if (active.demo.tipo === 'bracket') {
+        drawLine(map, current.xl, 0, current.xl, fn(current.xl), '#ffd98a', true);
+        drawLine(map, current.xu, 0, current.xu, fn(current.xu), '#ffd98a', true);
+        drawPoint(map, current.xl, 0, '#ffd98a', 'xₗ', { dx: 10, dy: 22 });
+        drawPoint(map, current.xu, 0, '#ffd98a', 'xᵤ', { dx: -42, dy: 22 });
+        drawPoint(map, current.xr, 0, '#48ddb0', 'xᵣ', { dx: 12, dy: 22 });
+        drawPoint(map, current.xr, current.fxr, color, 'f(xᵣ)', { dx: 12, dy: -24 });
+        readoutApprox.textContent = `xᵣ ≈ ${fmt(current.xr)}`;
+        readoutError.textContent = `semi-intervalo ≈ ${fmt(current.error)}`;
+      }
+      if (active.demo.tipo === 'false-position') {
+        drawLine(map, current.xl, current.fl, current.xu, current.fu, '#ffd98a');
+        drawPoint(map, current.xr, 0, '#48ddb0', 'xᵣ', { dx: 12, dy: 22 });
+        drawPoint(map, current.xl, current.fl, color, 'xₗ', { dx: 14, dy: -18 });
+        drawPoint(map, current.xu, current.fu, color, 'xᵤ', { dx: -48, dy: -18 });
+        readoutApprox.textContent = `xᵣ ≈ ${fmt(current.xr)}`;
+        readoutError.textContent = `intervalo ≈ ${fmt(current.error)}`;
+      }
+      if (active.demo.tipo === 'newton') {
+        const xA = bounds.xmin;
+        const xB = bounds.xmax;
+        const tangent = (x) => current.fxi + current.slope * (x - current.xi);
+        drawLine(map, xA, tangent(xA), xB, tangent(xB), '#ffd98a');
+        drawPoint(map, current.xi, current.fxi, color, xLabel(current.index), { dx: 12, dy: -22 });
+        drawPoint(map, current.next, 0, '#48ddb0', xLabel(current.index + 1), { dx: 12, dy: 24 });
+        readoutApprox.textContent = `${xLabel(current.index + 1)} ≈ ${fmt(current.next)}`;
+        readoutError.textContent = `|f(${xLabel(current.index)})| ≈ ${fmt(current.error)}`;
+      }
+      if (active.demo.tipo === 'secant') {
+        drawLine(map, current.x0, current.f0, current.x1, current.f1, '#ffd98a');
+        drawPoint(map, current.x0, current.f0, color, xLabel(current.leftIndex), { dx: 12, dy: 20 });
+        drawPoint(map, current.x1, current.f1, color, xLabel(current.rightIndex), { dx: 12, dy: -20 });
+        drawPoint(map, current.next, 0, '#48ddb0', xLabel(current.nextIndex), { dx: 12, dy: 24 });
+        readoutApprox.textContent = `${xLabel(current.nextIndex)} ≈ ${fmt(current.next)}`;
+        readoutError.textContent = `|${xLabel(current.nextIndex)} - ${xLabel(current.rightIndex)}| ≈ ${fmt(current.error)}`;
+      }
+      readoutFunction.textContent = `f(x) = ${prettyExpression(active.demo.funcion)}`;
+    }
+    badge.textContent = `${step}/${range.max}`;
+  }
+
+  function fmt(value) {
+    if (!Number.isFinite(value)) return 'indef.';
+    return Math.abs(value) >= 1000 ? value.toExponential(3) : value.toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
+  }
+
+  function prettyExpression(expression) {
+    return expression
+      .replace(/\^3/g, '³')
+      .replace(/\^2/g, '²')
+      .replace(/\*/g, '·');
+  }
+
+  function subscriptNumber(value) {
+    const map = { '-': '₋', '0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄', '5': '₅', '6': '₆', '7': '₇', '8': '₈', '9': '₉' };
+    return String(value).split('').map((char) => map[char] || char).join('');
+  }
+
+  function xLabel(index) {
+    return `x${subscriptNumber(index)}`;
+  }
+
+  function activeFamilyFilter() {
+    return familyButtons.find((button) => button.classList.contains('active'))?.dataset.familyFilter || 'todos';
+  }
+
+  function applyFilters() {
+    const filter = activeFamilyFilter();
+    const query = (methodSearch.value || '').trim().toLowerCase();
+    tabs.forEach((tab) => {
+      const matchesFamily = filter === 'todos' || tab.dataset.family === filter;
+      const matchesSearch = !query || (tab.dataset.search || '').includes(query);
+      tab.hidden = !(matchesFamily && matchesSearch);
+    });
+    const activeTab = tabs.find((tab) => tab.dataset.methodId === active.id);
+    if (!activeTab || activeTab.hidden) {
+      const next = tabs.find((tab) => !tab.hidden);
+      if (next) activateMethod(next.dataset.methodId);
+    }
+  }
+
+  tabs.forEach((tab) => tab.addEventListener('click', () => activateMethod(tab.dataset.methodId)));
+  familyButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      familyButtons.forEach((btn) => btn.classList.toggle('active', btn === button));
+      applyFilters();
+    });
+  });
+  methodSearch.addEventListener('input', applyFilters);
+  range.addEventListener('input', draw);
+  playBtn.addEventListener('click', () => timer ? stopTimer() : startTimer());
+  resetBtn.addEventListener('click', () => {
+    range.value = 0;
+    stopTimer();
+    draw();
+  });
+  window.addEventListener('resize', draw);
+  activateMethod(active.id);
+});
+</script>
+{% endblock %}

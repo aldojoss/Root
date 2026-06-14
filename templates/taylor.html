@@ -3,11 +3,11 @@
 <script src="https://www.desmos.com/api/v1.8/calculator.js?apiKey=dcb31709b452b1cf9dc26972add0fda6"></script>
 
 <div class="page-header">
-  <div class="method-icon" style="background:rgba(255,213,128,0.15);">
-    <i class="bi bi-layers" style="color:#ffd580;"></i>
+  <div class="method-icon" style="background:rgba(248,214,109,0.15);">
+    <i class="bi bi-layers" style="color:#f8d66d;"></i>
   </div>
   <div>
-    <h2 style="color:#ffd580;">Series de Taylor</h2>
+    <h2 style="color:#f8d66d;">Series de Taylor</h2>
     <p>
       Aproxima f(x) en un punto usando el polinomio
       P(x) = Σ f⁽ⁿ⁾(x₀)/n! · (x−x₀)ⁿ. A más términos, menor error.
@@ -58,7 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const mf   = document.getElementById('formula');
   const calc = createDarkDesmos(document.getElementById('desmos'));
   function update() {
-    calc.setExpression({ id:'f', latex:'f(x)=' + (mf.value||'0'), color:'#4f9cf9' });
+    calc.setExpression({ id:'f', latex:'f(x)=' + (mf.value||'0'), color:'#6ea8ff' });
   }
   mf.addEventListener('input', update);
   setTimeout(update, 350);

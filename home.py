@@ -35,6 +35,8 @@ from sympy.parsing.sympy_parser import (
     implicit_multiplication_application,
     convert_xor,
 )
+import analisis_inteligente
+from teoria_metodos import obtener_familias_teoria, obtener_teoria_metodos
 
 app = Flask(__name__)
 
@@ -54,41 +56,41 @@ _PARSER_TRANSFORMATIONS = standard_transformations + (
 # ─────────────────────────────────────────────────────────────────────────────
 # PALETA DE COLORES
 # ─────────────────────────────────────────────────────────────────────────────
-_BG     = "#0f1117"
-_BG2    = "#161923"
-_GRID   = "#1e2233"
-_AXIS   = "#3a3f55"     # Color de los ejes (visible en fondo oscuro)
-_TICK   = "#7a7f95"
-_TEXT   = "#c8ccd8"
-_LEGEND = "#1b1f2d"
+_BG     = "#0d1117"
+_BG2    = "#181b20"
+_GRID   = "#2a313d"
+_AXIS   = "#5e6a7d"     # Color de los ejes (visible en fondo oscuro)
+_TICK   = "#a0acc0"
+_TEXT   = "#f4f7fb"
+_LEGEND = "#12161d"
 
 _COLOR = {
-    "biseccion":     "#4f9cf9",
-    "falsa":         "#43d9a2",
-    "newton":        "#f97b4f",
-    "secante":       "#c792ea",
-    "taylor_f":      "#4f9cf9",
-    "taylor_p":      "#ffd580",
-    "punto_fijo_g":  "#c792ea",
-    "punto_fijo_id": "#3a3f55",
-    "horner":        "#ffd580",
-    "horner_newton": "#43d9a2",
-    "muller":        "#f97b4f",
-    "bairstow":      "#c792ea",
-    "jacobi":        "#80cbc4",
-    "gauss_seidel":  "#ffd580",
-    "newton_diff":   "#80cbc4",
-    "lagrange":      "#ffcb6b",
-    "spline":        "#82aaff",
-    "regresion":     "#cf6679",
-    "raiz":          "#43d9a2",
-    "raiz_compleja": "#f97b4f",
-    "limite":        "#ffd580",
+    "biseccion":     "#6ea8ff",
+    "falsa":         "#2ee59d",
+    "newton":        "#ff9b6a",
+    "secante":       "#c792ff",
+    "taylor_f":      "#6ea8ff",
+    "taylor_p":      "#f8d66d",
+    "punto_fijo_g":  "#c792ff",
+    "punto_fijo_id": "#5e6a7d",
+    "horner":        "#f8d66d",
+    "horner_newton": "#2ee59d",
+    "muller":        "#ff9b6a",
+    "bairstow":      "#c792ff",
+    "jacobi":        "#4ddde0",
+    "gauss_seidel":  "#f8d66d",
+    "newton_diff":   "#4ddde0",
+    "lagrange":      "#f8d66d",
+    "spline":        "#6ea8ff",
+    "regresion":     "#ff6f91",
+    "raiz":          "#2ee59d",
+    "raiz_compleja": "#ff9b6a",
+    "limite":        "#f8d66d",
 }
 
 _COLORES_RAICES = [
-    "#43d9a2", "#ffd580", "#f97b4f", "#4f9cf9",
-    "#c792ea", "#80cbc4", "#ffcb6b", "#cf6679",
+    "#2ee59d", "#f8d66d", "#ff9b6a", "#6ea8ff",
+    "#c792ff", "#4ddde0", "#ff6f91", "#b7f7d7",
 ]
 
 
@@ -3355,6 +3357,47 @@ def _ruta(metodo_fn, template, **kwargs):
 @app.route("/")
 def inicio():
     return render_template("index.html")
+
+
+def _deps_analisis_inteligente():
+    return {
+        "parsear_funcion": parsear_funcion,
+        "parse_matriz": _parse_matriz_aumentada,
+        "parse_puntos": _parse_puntos,
+        "metodo_biseccion": metodo_biseccion,
+        "metodo_falsa_posicion": metodo_falsa_posicion,
+        "metodo_newton_raphson": metodo_newton_raphson,
+        "metodo_secante": metodo_secante,
+        "metodo_gauss": metodo_gauss,
+        "metodo_gauss_jordan": metodo_gauss_jordan,
+        "metodo_lu": metodo_lu,
+        "metodo_jacobi": metodo_jacobi,
+        "metodo_gauss_seidel": metodo_gauss_seidel,
+        "metodo_newton_diferencias": metodo_newton_diferencias,
+        "metodo_lagrange": metodo_lagrange,
+        "metodo_trazadores_cubicos": metodo_trazadores_cubicos,
+        "metodo_regresion_lineal": metodo_regresion_lineal,
+    }
+
+
+@app.route("/analisis_inteligente", methods=["GET", "POST"])
+def analisis_inteligente_route():
+    datos = None
+    if request.method == "POST":
+        datos = analisis_inteligente.analizar_solicitud(
+            request.form,
+            _deps_analisis_inteligente(),
+        )
+    return render_template("analisis_inteligente.html", datos=datos)
+
+
+@app.route("/teoria_metodos")
+def teoria_metodos_route():
+    return render_template(
+        "teoria_metodos.html",
+        metodos=obtener_teoria_metodos(),
+        familias=obtener_familias_teoria(),
+    )
 
 
 @app.route("/biseccion", methods=["GET","POST"])

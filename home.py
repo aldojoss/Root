@@ -83,6 +83,9 @@ _COLOR = {
     "lagrange":      "#f8d66d",
     "spline":        "#6ea8ff",
     "regresion":     "#ff6f91",
+    "trapecio":      "#2ee59d",
+    "romberg":       "#6ea8ff",
+    "diferenciacion":"#c792ff",
     "raiz":          "#2ee59d",
     "raiz_compleja": "#ff9b6a",
     "limite":        "#f8d66d",
@@ -769,40 +772,195 @@ def _radio_espectral(B):
     return rho
 
 
+def _autovalores_iteracion(B):
+    vals = np.linalg.eigvals(B)
+    return [
+        {"valor": _fmt_num(v), "modulo": _fmt_num(abs(v))}
+        for v in vals
+    ]
+
+
+def _diagnostico_dominancia(A):
+    """Analiza dominancia diagonal fila por fila para explicar convergencia."""
+    A = np.asarray(A, dtype=float)
+    filas = []
+    ok_count = 0
+    strict_count = 0
+    for i, fila in enumerate(A):
+        diagonal = abs(float(fila[i]))
+        resto = float(np.sum(np.abs(fila)) - diagonal)
+        margen = diagonal - resto
+        if diagonal > resto + _DIV_ZERO_THRESH:
+            estado = "Estricta"
+            ok_count += 1
+            strict_count += 1
+        elif diagonal + _DIV_ZERO_THRESH >= resto:
+            estado = "Débil"
+            ok_count += 1
+        else:
+            estado = "No dominante"
+        filas.append({
+            "fila": i + 1,
+            "diagonal": _fmt_num(diagonal),
+            "resto": _fmt_num(resto),
+            "margen": _fmt_num(margen),
+            "estado": estado,
+            "ok": diagonal + _DIV_ZERO_THRESH >= resto,
+            "estricta": diagonal > resto + _DIV_ZERO_THRESH,
+            "margen_raw": margen,
+        })
+
+    dominante = ok_count == len(filas) and strict_count > 0
+    debil = ok_count == len(filas)
+    if dominante:
+        resumen = "Diagonal dominante estricta al menos en una fila."
+    elif debil:
+        resumen = "Diagonal dominante débil."
+    else:
+        resumen = f"{ok_count}/{len(filas)} filas cumplen dominancia diagonal."
+    return {
+        "filas": filas,
+        "dominante": dominante,
+        "debil": debil,
+        "ok_count": ok_count,
+        "strict_count": strict_count,
+        "resumen": resumen,
+    }
+
+
+def _perm_texto(perm):
+    return " → ".join(f"F{p + 1}" for p in perm)
+
+
+def _fila_score_para_columna(A, fila_idx, col_idx):
+    fila = A[fila_idx]
+    diagonal = abs(float(fila[col_idx]))
+    resto = float(np.sum(np.abs(fila)) - diagonal)
+    escala = max(float(np.sum(np.abs(fila))), _DIV_ZERO_THRESH)
+    dominante_bonus = 2.0 if diagonal + _DIV_ZERO_THRESH >= resto else 0.0
+    estricta_bonus = 1.0 if diagonal > resto + _DIV_ZERO_THRESH else 0.0
+    return dominante_bonus + estricta_bonus + (diagonal - resto) / escala + diagonal / escala
+
+
+def _buscar_perm_dominante(A):
+    """Busca por backtracking una permutación de filas con dominancia diagonal."""
+    A = np.asarray(A, dtype=float)
+    n = A.shape[0]
+    candidatos = []
+    for col in range(n):
+        rows = []
+        for row in range(n):
+            diag = abs(float(A[row, col]))
+            resto = float(np.sum(np.abs(A[row])) - diag)
+            if diag + _DIV_ZERO_THRESH >= resto:
+                rows.append(row)
+        rows.sort(key=lambda r: _fila_score_para_columna(A, r, col), reverse=True)
+        candidatos.append((col, rows))
+
+    if any(not rows for _, rows in candidatos):
+        return None
+
+    orden_columnas = sorted(candidatos, key=lambda item: len(item[1]))
+    asignacion = [None] * n
+    usadas = set()
+
+    def backtrack(pos):
+        if pos == len(orden_columnas):
+            diag = _diagnostico_dominancia(A[asignacion, :])
+            return diag["debil"]
+        col, rows = orden_columnas[pos]
+        for row in rows:
+            if row in usadas:
+                continue
+            asignacion[col] = row
+            usadas.add(row)
+            if backtrack(pos + 1):
+                return True
+            usadas.remove(row)
+            asignacion[col] = None
+        return False
+
+    if backtrack(0):
+        return tuple(asignacion)
+    return None
+
+
+def _permutaciones_beam(A, ancho=384):
+    """Genera buenas permutaciones candidatas sin factorial completo para sistemas grandes."""
+    A = np.asarray(A, dtype=float)
+    n = A.shape[0]
+    beam = [(0.0, tuple(), frozenset())]
+    for col in range(n):
+        siguiente = []
+        for score, perm, usadas in beam:
+            for row in range(n):
+                if row in usadas:
+                    continue
+                nuevo_score = score + _fila_score_para_columna(A, row, col)
+                siguiente.append((nuevo_score, perm + (row,), usadas | {row}))
+        siguiente.sort(key=lambda item: item[0], reverse=True)
+        beam = siguiente[:ancho]
+    return [perm for _, perm, _ in beam]
+
+
 def _preparar_iterativo(A, b, metodo):
     n = len(b)
 
     def _candidato(perm):
+        perm = tuple(perm)
         PA = A[list(perm), :].astype(float)
         Pb = b[list(perm)].astype(float)
         B, c = _matriz_iteracion_lineal(PA, Pb, metodo)
-        return PA, Pb, B, c, _radio_espectral(B)
+        return {
+            "A": PA,
+            "b": Pb,
+            "B": B,
+            "c": c,
+            "rho": _radio_espectral(B),
+            "perm": perm,
+            "dominancia": _diagnostico_dominancia(PA),
+            "autovalores": _autovalores_iteracion(B),
+        }
 
+    original = None
+    candidatos_validos = []
     try:
-        PA, Pb, B, c, rho = _candidato(range(n))
-        if rho < 1.0:
-            return PA, Pb, B, c, rho, False, None
+        original = _candidato(range(n))
+        candidatos_validos.append(original)
     except Exception:
         pass
 
+    perm_dominante = _buscar_perm_dominante(A)
+    if perm_dominante is not None:
+        try:
+            candidatos_validos.append(_candidato(perm_dominante))
+        except Exception:
+            pass
+
+    perms_revisadas = {cand["perm"] for cand in candidatos_validos}
     if n <= 7:
-        mejor = None
-        mejor_perm = None
         for perm in itertools.permutations(range(n)):
+            perm = tuple(perm)
+            if perm in perms_revisadas:
+                continue
             try:
                 cand = _candidato(perm)
             except Exception:
                 continue
-            if mejor is None or cand[4] < mejor[4]:
-                mejor = cand
-                mejor_perm = perm
-            if cand[4] < 1.0:
-                PA, Pb, B, c, rho = cand
-                return PA, Pb, B, c, rho, tuple(perm) != tuple(range(n)), None
-        if mejor is not None:
-            return (*mejor, tuple(mejor_perm) != tuple(range(n)), None)
+            candidatos_validos.append(cand)
+            perms_revisadas.add(perm)
+    else:
+        for perm in _permutaciones_beam(A):
+            if perm in perms_revisadas:
+                continue
+            try:
+                cand = _candidato(perm)
+            except Exception:
+                continue
+            candidatos_validos.append(cand)
+            perms_revisadas.add(perm)
 
-    if np.any(np.abs(np.diag(A)) < _DIV_ZERO_THRESH):
+    if not candidatos_validos and np.any(np.abs(np.diag(A)) < _DIV_ZERO_THRESH):
         return None, None, None, None, None, False, {
             "error": True,
             "titulo": "⚠️ Diagonal inválida",
@@ -810,16 +968,46 @@ def _preparar_iterativo(A, b, metodo):
             "consejo": "Reordena las ecuaciones o usa un método directo como Gauss o LU.",
         }
 
-    try:
-        PA, Pb, B, c, rho = _candidato(range(n))
-        return PA, Pb, B, c, rho, False, None
-    except Exception as exc:
+    if not candidatos_validos:
         return None, None, None, None, None, False, {
             "error": True,
             "titulo": "⚠️ Sistema iterativo inválido",
-            "mensaje": f"No se pudo construir la matriz de iteración: {str(exc)[:120]}",
+            "mensaje": "No se pudo construir una matriz de iteración válida con ningún orden de filas probado.",
             "consejo": "Revisa pivotes diagonales, dependencias entre ecuaciones y escala del sistema.",
         }
+
+    mejor = min(candidatos_validos, key=lambda cand: cand["rho"])
+    identidad = tuple(range(n))
+    reordenado = mejor["perm"] != identidad
+    rho_original = original["rho"] if original is not None else None
+    analisis = {
+        "reordenado": reordenado,
+        "perm": mejor["perm"],
+        "perm_texto": _perm_texto(mejor["perm"]),
+        "perm_original": identidad,
+        "perm_original_texto": _perm_texto(identidad),
+        "rho_original": rho_original,
+        "rho_final": mejor["rho"],
+        "dominancia_original": _diagnostico_dominancia(A),
+        "dominancia_final": mejor["dominancia"],
+        "autovalores": mejor["autovalores"],
+        "candidatos_revisados": len(perms_revisadas),
+        "matriz_original": _fmt_matrix(A),
+        "matriz_reordenada": _fmt_matrix(mejor["A"]),
+        "b_original": _fmt_vec(b),
+        "b_reordenado": _fmt_vec(mejor["b"]),
+        "diagnostico": (
+            "Se reordenaron las ecuaciones para obtener el menor radio espectral encontrado."
+            if reordenado else
+            "El orden ingresado ya fue el mejor entre los candidatos revisados."
+        ),
+    }
+    if rho_original is not None and reordenado:
+        analisis["mejora_rho"] = rho_original - mejor["rho"]
+    else:
+        analisis["mejora_rho"] = 0.0
+
+    return mejor["A"], mejor["b"], mejor["B"], mejor["c"], mejor["rho"], analisis, None
 
 
 def _grafica_convergencia_sistema(resultados, color, label):
@@ -839,8 +1027,40 @@ def _grafica_convergencia_sistema(resultados, color, label):
     return _grafica_b64(fig)
 
 
+def _extras_iterativo(B, c, rho, tol, analisis, iteraciones=0, error_final=None, residuo_final=None):
+    analisis = analisis or {}
+    criterio = "Convergencia esperada: ρ(B) < 1" if rho < 1.0 else "Convergencia no garantizada: ρ(B) ≥ 1"
+    extras = {
+        "radio_espectral": _fmt_num(rho),
+        "radio_espectral_raw": rho,
+        "criterio_rho": criterio,
+        "matriz_iteracion": _fmt_matrix(B),
+        "vector_c": _fmt_vec(c),
+        "tolerancia": _fmt_num(tol),
+        "reordenado": bool(analisis.get("reordenado", False)),
+        "perm_texto": analisis.get("perm_texto", "F1"),
+        "perm_original_texto": analisis.get("perm_original_texto", "F1"),
+        "rho_original": "---" if analisis.get("rho_original") is None else _fmt_num(analisis.get("rho_original")),
+        "rho_final": _fmt_num(rho),
+        "mejora_rho": _fmt_num(analisis.get("mejora_rho", 0.0)),
+        "dominancia_original": analisis.get("dominancia_original"),
+        "dominancia_final": analisis.get("dominancia_final"),
+        "autovalores": analisis.get("autovalores", []),
+        "candidatos_revisados": analisis.get("candidatos_revisados", 0),
+        "matriz_original": analisis.get("matriz_original"),
+        "matriz_reordenada": analisis.get("matriz_reordenada"),
+        "b_original": analisis.get("b_original"),
+        "b_reordenado": analisis.get("b_reordenado"),
+        "diagnostico": analisis.get("diagnostico", ""),
+        "iteraciones": iteraciones,
+        "error_final": "---" if error_final is None else _fmt_num(error_final),
+        "residuo_final": "---" if residuo_final is None else _fmt_num(residuo_final),
+    }
+    return extras
+
+
 def _resultado_sistema_iterativo(metodo, A_original, b_original, A, b, B, c, rho,
-                                 inicial, tol, max_iter, reordenado, color):
+                                 inicial, tol, max_iter, analisis, color):
     residuo_inicial = _residuo_lineal(A_original, inicial, b_original)
     if residuo_inicial <= _DIV_ZERO_THRESH:
         resultados = [{
@@ -849,10 +1069,12 @@ def _resultado_sistema_iterativo(metodo, A_original, b_original, A, b, B, c, rho
             "x_siguiente": ", ".join(f"x{i+1}={_fmt_num(v)}" for i, v in enumerate(inicial)),
             "ea": 0,
             "ea_raw": 0.0,
+            "delta": 0,
             "residuo": _fmt_num(residuo_inicial),
             "residuo_raw": residuo_inicial,
         }]
         grafica = _grafica_convergencia_sistema(resultados, color, metodo)
+        extras = _extras_iterativo(B, c, rho, tol, analisis, 0, 0.0, residuo_inicial)
         return {
             "error": False,
             "tipo": "sistema_iterativo",
@@ -863,13 +1085,7 @@ def _resultado_sistema_iterativo(metodo, A_original, b_original, A, b, B, c, rho
             "resultados": resultados,
             "pasos": [],
             "grafica": grafica,
-            "extras": {
-                "radio_espectral": _fmt_num(rho),
-                "matriz_iteracion": _fmt_matrix(B),
-                "vector_c": _fmt_vec(c),
-                "reordenado": reordenado,
-                "tolerancia": _fmt_num(tol),
-            },
+            "extras": extras,
         }
 
     if rho >= 1.0:
@@ -881,6 +1097,7 @@ def _resultado_sistema_iterativo(metodo, A_original, b_original, A, b, B, c, rho
                 f"{metodo} puede divergir para este sistema."
             ),
             "consejo": "Reordena o escala las ecuaciones, usa una semilla distinta, o resuelve con Gauss/LU.",
+            "extras": _extras_iterativo(B, c, rho, tol, analisis),
         }
 
     x_prev = np.asarray(inicial, dtype=float)
@@ -906,6 +1123,7 @@ def _resultado_sistema_iterativo(metodo, A_original, b_original, A, b, B, c, rho
 
         ea = float(np.linalg.norm(x_next - x_prev, ord=np.inf) /
                    max(np.linalg.norm(x_next, ord=np.inf), _DIV_ZERO_THRESH) * 100)
+        delta = float(np.linalg.norm(x_next - x_prev, ord=np.inf))
         residuo = _residuo_lineal(A_original, x_next, b_original)
         resultados.append({
             "iteracion": i,
@@ -913,6 +1131,7 @@ def _resultado_sistema_iterativo(metodo, A_original, b_original, A, b, B, c, rho
             "x_siguiente": ", ".join(f"x{j+1}={_fmt_num(v)}" for j, v in enumerate(x_next)),
             "ea": _fmt_num(ea),
             "ea_raw": ea,
+            "delta": _fmt_num(delta),
             "residuo": _fmt_num(residuo),
             "residuo_raw": residuo,
         })
@@ -920,6 +1139,7 @@ def _resultado_sistema_iterativo(metodo, A_original, b_original, A, b, B, c, rho
         x_prev = x_next
         if ea <= tol or residuo <= _DIV_ZERO_THRESH:
             grafica = _grafica_convergencia_sistema(resultados, color, metodo)
+            extras = _extras_iterativo(B, c, rho, tol, analisis, i, ea, residuo)
             return {
                 "error": False,
                 "tipo": "sistema_iterativo",
@@ -934,15 +1154,15 @@ def _resultado_sistema_iterativo(metodo, A_original, b_original, A, b, B, c, rho
                 "resultados": resultados,
                 "pasos": [],
                 "grafica": grafica,
-                "extras": {
-                    "radio_espectral": _fmt_num(rho),
-                    "matriz_iteracion": _fmt_matrix(B),
-                    "vector_c": _fmt_vec(c),
-                    "reordenado": reordenado,
-                    "tolerancia": _fmt_num(tol),
-                },
+                "extras": extras,
             }
 
+    extras = _extras_iterativo(
+        B, c, rho, tol, analisis,
+        len(resultados),
+        resultados[-1]["ea_raw"] if resultados else None,
+        resultados[-1]["residuo_raw"] if resultados else None,
+    )
     return {
         "error": True,
         "titulo": "⚠️ No convergió",
@@ -951,6 +1171,7 @@ def _resultado_sistema_iterativo(metodo, A_original, b_original, A, b, B, c, rho
             f"en {max_iter} iteración(es)."
         ),
         "consejo": "Aumenta el número de iteraciones, usa otra semilla o prueba un método directo.",
+        "extras": extras,
     }
 
 
@@ -1689,6 +1910,493 @@ def metodo_taylor(latex_str, x0, x_eval, n_terminos):
         "funcion_latex":   _math_inline(f"f\\left({sp.latex(var)}\\right) = {_latex_expr(f_sim, expand=False)}"),
         "polinomio_latex": _math_inline(f"P\\left({sp.latex(var)}\\right) = {_latex_expr(polinomio_taylor)}"),
         "grafica":         _grafica_b64(fig),
+    }
+
+
+# =============================================================================
+# MÉTODOS DE CÁLCULO NUMÉRICO — INTEGRACIÓN Y DIFERENCIACIÓN
+# =============================================================================
+def _validar_intervalo_integracion(f_sim, var, a, b):
+    """Valida intervalo no degenerado y sin singularidades detectables."""
+    if abs(float(b) - float(a)) < _DIV_ZERO_THRESH:
+        return _error_parametro(
+            "El intervalo no puede tener a y b iguales.",
+            "Usa dos límites distintos para aproximar el área.",
+        )
+
+    izq, der = sorted((float(a), float(b)))
+    try:
+        singulares = sp.calculus.util.singularities(f_sim, var)
+        dentro = singulares.intersect(sp.Interval(izq, der))
+    except Exception:
+        return None
+
+    if dentro != sp.EmptySet:
+        return {
+            "error": True,
+            "titulo": "⚠️ Intervalo no válido",
+            "mensaje": (
+                f"La función tiene una discontinuidad o singularidad en "
+                f"[{_fmt_num(izq)}, {_fmt_num(der)}]: {str(dentro)[:120]}."
+            ),
+            "consejo": "Divide el intervalo o evita puntos donde la función no esté definida.",
+        }
+    return None
+
+
+def _valor_exactitud_integral(f_sim, var, a, b):
+    """Intenta calcular la integral exacta o numérica de referencia con SymPy."""
+    try:
+        integral = sp.integrate(f_sim, (var, sp.Float(a), sp.Float(b)))
+        valor = _safe_float(sp.N(integral, 30))
+        if valor is None or not math.isfinite(valor):
+            return None, None
+        return valor, _math_inline(
+            f"\\int_{{{_latex_num(a)}}}^{{{_latex_num(b)}}}"
+            f"{_latex_expr(f_sim, expand=False)}\\,d{sp.latex(var)}"
+            f"={_latex_num(valor)}"
+        )
+    except Exception:
+        return None, None
+
+
+def _error_contra_referencia(aprox, exacto):
+    if exacto is None:
+        return None, None
+    error_abs = abs(float(aprox) - float(exacto))
+    error_pct = None
+    if abs(float(exacto)) > _DIV_ZERO_THRESH:
+        error_pct = error_abs / abs(float(exacto)) * 100.0
+    return error_abs, error_pct
+
+
+def _graficar_integracion(f_lam, var, a, b, nodos, valores, color, metodo):
+    izq, der = sorted((float(a), float(b)))
+    margen = max((der - izq) * 0.14, 1.0)
+    fig, ax = _hacer_figura()
+    _trazar_funcion(ax, f_lam, izq - margen, der + margen, color, f"f({var})")
+
+    xs = np.array(nodos, dtype=float)
+    ys = np.array(valores, dtype=float)
+    orden = np.argsort(xs)
+    xs_ord = xs[orden]
+    ys_ord = ys[orden]
+
+    if metodo in ("trapecio", "romberg"):
+        for xi, xj, yi, yj in zip(xs_ord[:-1], xs_ord[1:], ys_ord[:-1], ys_ord[1:]):
+            ax.fill([xi, xi, xj, xj], [0, yi, yj, 0],
+                    color=color, alpha=0.13, edgecolor=color, linewidth=1.0)
+            ax.plot([xi, xj], [yi, yj], color=_COLOR["limite"], lw=1.2, alpha=0.75)
+    else:
+        for i in range(0, len(xs_ord) - 2, 2):
+            x_seg = np.linspace(xs_ord[i], xs_ord[i + 2], 120)
+            with np.errstate(all="ignore"):
+                y_seg = f_lam(x_seg)
+            y_seg = np.array([_safe_float(v) for v in y_seg], dtype=float)
+            ax.fill_between(x_seg, 0, y_seg, color=color, alpha=0.12)
+            ax.axvline(xs_ord[i + 1], color=_COLOR["limite"], ls=":", lw=1.0, alpha=0.6)
+
+    ax.scatter(xs_ord, ys_ord, s=36, color=_COLOR["raiz"], edgecolor=_BG,
+               linewidth=0.7, zorder=6, label="Nodos")
+    for i, (xi, yi) in enumerate(zip(xs_ord, ys_ord)):
+        if i in {0, len(xs_ord) - 1} or len(xs_ord) <= 12:
+            ax.annotate(f"x{i}", (xi, yi), xytext=(4, 8), textcoords="offset points",
+                        color=_TEXT, fontsize=7)
+    ax.set_title("Aproximación del área bajo la curva")
+    ax.legend(fontsize=8, facecolor=_LEGEND, edgecolor=_AXIS, labelcolor=_TEXT)
+    fig.tight_layout()
+    return _grafica_b64(fig)
+
+
+def _preparar_funcion_calculo(latex_str):
+    f_sim, var, err = parsear_funcion(latex_str)
+    if err:
+        return None, None, None, err
+    try:
+        f_lam = sp.lambdify(var, f_sim, "numpy")
+    except Exception as exc:
+        return None, None, None, {
+            "error": True,
+            "titulo": "🛑 Función no evaluable",
+            "mensaje": str(exc)[:200],
+            "consejo": "Revisa la sintaxis de la función.",
+        }
+    return f_sim, var, f_lam, None
+
+
+def metodo_trapecio(latex_str, a, b, n):
+    """Regla del trapecio compuesta."""
+    err = _validar_reales(a=a, b=b)
+    if err:
+        return err
+    err = _validar_entero_rango(n, "Número de subintervalos", 1, 200)
+    if err:
+        return err
+    a, b, n = float(a), float(b), int(float(n))
+
+    f_sim, var, f_lam, err = _preparar_funcion_calculo(latex_str)
+    if err:
+        return err
+    err = _validar_intervalo_integracion(f_sim, var, a, b)
+    if err:
+        return err
+
+    h = (b - a) / n
+    nodos = [a + i * h for i in range(n + 1)]
+    valores = []
+    for i, xi in enumerate(nodos):
+        fxi, e = _eval_seguro(f_lam, xi, f"x_{i}")
+        if e:
+            return e
+        valores.append(fxi)
+
+    suma_ponderada = 0.0
+    resultados = []
+    for i, (xi, fxi) in enumerate(zip(nodos, valores)):
+        peso = 1 if i in (0, n) else 2
+        aporte = peso * fxi
+        suma_ponderada += aporte
+        resultados.append({
+            "i": i,
+            "x_i": _fmt_num(xi),
+            "fx_i": _fmt_num(fxi),
+            "peso": peso,
+            "aporte": _fmt_num(aporte),
+        })
+
+    aproximacion = (h / 2.0) * suma_ponderada
+    exacto, exacto_latex = _valor_exactitud_integral(f_sim, var, a, b)
+    error_abs, error_pct = _error_contra_referencia(aproximacion, exacto)
+    grafica = _graficar_integracion(f_lam, var, a, b, nodos, valores,
+                                    _COLOR["trapecio"], "trapecio")
+
+    estadisticas = [
+        {"label": "h", "value": _fmt_num(h)},
+        {"label": "Subintervalos", "value": n},
+        {"label": "Suma ponderada", "value": _fmt_num(suma_ponderada)},
+    ]
+    if exacto is not None:
+        estadisticas.extend([
+            {"label": "Valor de referencia", "value": _fmt_num(exacto)},
+            {"label": "Error absoluto", "value": _fmt_num(error_abs)},
+            {"label": "Error %", "value": "---" if error_pct is None else _fmt_num(error_pct)},
+        ])
+
+    return {
+        "error": False,
+        "tipo": "trapecio",
+        "titulo": "Regla del Trapecio",
+        "resultado": _fmt_num(aproximacion),
+        "resultado_label": "Integral aproximada",
+        "convergencia": "Compuesta: aproxima el área con trapecios en cada subintervalo.",
+        "funcion_latex": _math_inline(f"f\\left({sp.latex(var)}\\right)={_latex_expr(f_sim, expand=False)}"),
+        "formula_latex": _math_inline(
+            r"I \approx \frac{h}{2}\left[f(x_0)+2\sum_{i=1}^{n-1}f(x_i)+f(x_n)\right]"
+        ),
+        "sustitucion_latex": _math_inline(
+            f"I \\approx \\frac{{{_latex_num(h)}}}{{2}}\\left({ _latex_num(suma_ponderada) }\\right)"
+            f"={_latex_num(aproximacion)}"
+        ),
+        "exacto_latex": exacto_latex,
+        "error_abs": None if error_abs is None else _fmt_num(error_abs),
+        "error_pct": None if error_pct is None else _fmt_num(error_pct),
+        "estadisticas": estadisticas,
+        "resultados": resultados,
+        "columnas": [
+            {"key": "i", "label": "i", "clase": "cell-iter"},
+            {"key": "x_i", "label": "xᵢ", "clase": "cell-blue"},
+            {"key": "fx_i", "label": "f(xᵢ)", "clase": "cell-result"},
+            {"key": "peso", "label": "peso", "clase": "cell-purple"},
+            {"key": "aporte", "label": "peso·f(xᵢ)", "clase": "cell-yellow"},
+        ],
+        "grafica": grafica,
+    }
+
+
+def metodo_romberg(latex_str, a, b, niveles):
+    """Integración de Romberg basada en trapecio compuesto y Richardson."""
+    err = _validar_reales(a=a, b=b)
+    if err:
+        return err
+    err = _validar_entero_rango(niveles, "Número de niveles", 2, 8)
+    if err:
+        return err
+    a, b, niveles = float(a), float(b), int(float(niveles))
+
+    f_sim, var, f_lam, err = _preparar_funcion_calculo(latex_str)
+    if err:
+        return err
+    err = _validar_intervalo_integracion(f_sim, var, a, b)
+    if err:
+        return err
+
+    tabla = []
+    resultados = []
+    nodos_finales = []
+    valores_finales = []
+
+    for k in range(niveles):
+        n_sub = 2 ** k
+        h = (b - a) / n_sub
+        nodos = [a + i * h for i in range(n_sub + 1)]
+        valores = []
+        for i, xi in enumerate(nodos):
+            fxi, e = _eval_seguro(f_lam, xi, f"x_{i}")
+            if e:
+                return e
+            valores.append(fxi)
+
+        trapecio_k = h * (0.5 * valores[0] + sum(valores[1:-1]) + 0.5 * valores[-1])
+        fila_romberg = [trapecio_k]
+        for j in range(1, k + 1):
+            refinado = fila_romberg[j - 1] + (
+                fila_romberg[j - 1] - tabla[k - 1][j - 1]
+            ) / ((4 ** j) - 1)
+            fila_romberg.append(refinado)
+        tabla.append(fila_romberg)
+
+        fila = {
+            "nivel": k,
+            "subintervalos": n_sub,
+            "h": _fmt_num(h),
+        }
+        for j in range(niveles):
+            fila[f"r{j}"] = _fmt_num(fila_romberg[j]) if j <= k else "—"
+        resultados.append(fila)
+
+        if k == niveles - 1:
+            nodos_finales = nodos
+            valores_finales = valores
+
+    aproximacion = tabla[-1][-1]
+    exacto, exacto_latex = _valor_exactitud_integral(f_sim, var, a, b)
+    error_abs, error_pct = _error_contra_referencia(aproximacion, exacto)
+    grafica = _graficar_integracion(f_lam, var, a, b, nodos_finales, valores_finales,
+                                    _COLOR["romberg"], "romberg")
+
+    estadisticas = [
+        {"label": "Niveles", "value": niveles},
+        {"label": "Subintervalos finales", "value": 2 ** (niveles - 1)},
+        {"label": "h final", "value": _fmt_num((b - a) / (2 ** (niveles - 1)))},
+        {"label": "Mejor estimación", "value": _fmt_num(aproximacion)},
+    ]
+    if exacto is not None:
+        estadisticas.extend([
+            {"label": "Valor de referencia", "value": _fmt_num(exacto)},
+            {"label": "Error absoluto", "value": _fmt_num(error_abs)},
+            {"label": "Error %", "value": "---" if error_pct is None else _fmt_num(error_pct)},
+        ])
+
+    return {
+        "error": False,
+        "tipo": "romberg",
+        "titulo": "Integración de Romberg",
+        "resultado": _fmt_num(aproximacion),
+        "resultado_label": "Integral aproximada",
+        "convergencia": "Refina Trapecio con n = 1, 2, 4, ... y extrapolación de Richardson.",
+        "funcion_latex": _math_inline(f"f\\left({sp.latex(var)}\\right)={_latex_expr(f_sim, expand=False)}"),
+        "formula_latex": _math_inline(
+            r"R_{k,j}=R_{k,j-1}+\frac{R_{k,j-1}-R_{k-1,j-1}}{4^j-1},\qquad R_{k,0}=T_{2^k}"
+        ),
+        "sustitucion_latex": _math_inline(
+            f"I \\approx R_{{{niveles - 1},{niveles - 1}}}={_latex_num(aproximacion)}"
+        ),
+        "exacto_latex": exacto_latex,
+        "error_abs": None if error_abs is None else _fmt_num(error_abs),
+        "error_pct": None if error_pct is None else _fmt_num(error_pct),
+        "estadisticas": estadisticas,
+        "resultados": resultados,
+        "columnas": (
+            [
+                {"key": "nivel", "label": "k", "clase": "cell-iter"},
+                {"key": "subintervalos", "label": "n = 2ᵏ", "clase": "cell-blue"},
+                {"key": "h", "label": "h", "clase": "cell-purple"},
+            ] + [
+                {"key": f"r{j}", "label": f"R(k,{j})", "clase": "cell-result" if j == niveles - 1 else "cell-yellow"}
+                for j in range(niveles)
+            ]
+        ),
+        "grafica": grafica,
+    }
+
+
+def _graficar_diferenciacion(f_lam, var, x0, h, puntos, valores, aproximacion, orden, color):
+    margen = max(4.0 * abs(h), 1.0)
+    fig, ax = _hacer_figura()
+    _trazar_funcion(ax, f_lam, x0 - margen, x0 + margen, color, f"f({var})")
+
+    xs = np.array(puntos, dtype=float)
+    ys = np.array(valores, dtype=float)
+    ax.scatter(xs, ys, s=55, color=_COLOR["raiz"], edgecolor=_BG,
+               linewidth=0.8, zorder=6, label="Puntos usados")
+
+    f0, _ = _eval_seguro(f_lam, x0, "x0")
+    if f0 is not None:
+        ax.plot(x0, f0, "D", color=_COLOR["limite"], ms=7, zorder=7, label="x₀")
+        if orden == 1:
+            linea_x = np.linspace(x0 - margen * 0.55, x0 + margen * 0.55, 80)
+            linea_y = f0 + aproximacion * (linea_x - x0)
+            ax.plot(linea_x, linea_y, color=_COLOR["limite"], lw=1.8, ls="--",
+                    label="Recta con pendiente aproximada")
+
+    for i, (xi, yi) in enumerate(zip(xs, ys)):
+        ax.annotate(f"p{i}", (xi, yi), xytext=(4, 8), textcoords="offset points",
+                    color=_TEXT, fontsize=7)
+    ax.set_title("Aproximación local de la derivada")
+    ax.legend(fontsize=8, facecolor=_LEGEND, edgecolor=_AXIS, labelcolor=_TEXT)
+    fig.tight_layout()
+    return _grafica_b64(fig)
+
+
+def metodo_diferenciacion_numerica(latex_str, x0, h, esquema="centrada"):
+    """Diferenciación numérica por diferencias finitas básicas."""
+    esquemas = {
+        "adelante": {
+            "nombre": "Diferencia hacia adelante",
+            "orden": 1,
+            "offsets": [0, 1],
+            "coef": [-1, 1],
+            "divisor": lambda h_: h_,
+            "formula": r"f'(x_0)\approx\frac{f(x_0+h)-f(x_0)}{h}",
+        },
+        "atras": {
+            "nombre": "Diferencia hacia atrás",
+            "orden": 1,
+            "offsets": [-1, 0],
+            "coef": [-1, 1],
+            "divisor": lambda h_: h_,
+            "formula": r"f'(x_0)\approx\frac{f(x_0)-f(x_0-h)}{h}",
+        },
+        "centrada": {
+            "nombre": "Diferencia centrada",
+            "orden": 1,
+            "offsets": [-1, 1],
+            "coef": [-1, 1],
+            "divisor": lambda h_: 2 * h_,
+            "formula": r"f'(x_0)\approx\frac{f(x_0+h)-f(x_0-h)}{2h}",
+        },
+        "segunda_centrada": {
+            "nombre": "Segunda derivada centrada",
+            "orden": 2,
+            "offsets": [-1, 0, 1],
+            "coef": [1, -2, 1],
+            "divisor": lambda h_: h_ ** 2,
+            "formula": r"f''(x_0)\approx\frac{f(x_0+h)-2f(x_0)+f(x_0-h)}{h^2}",
+        },
+    }
+    if esquema not in esquemas:
+        return _error_parametro(
+            "El esquema de diferenciación seleccionado no existe.",
+            "Elige adelante, atrás, centrada o segunda derivada centrada.",
+        )
+
+    err = _validar_reales(x0=x0, h=h)
+    if err:
+        return err
+    x0, h = float(x0), float(h)
+    if h <= 0:
+        return _error_parametro("h debe ser mayor que 0.", "Usa un paso positivo, por ejemplo 0.01.")
+    if h < 1e-10:
+        return _error_parametro(
+            "h es demasiado pequeño para trabajar con seguridad numérica.",
+            "Un h extremadamente pequeño puede causar cancelación por redondeo.",
+        )
+
+    f_sim, var, f_lam, err = _preparar_funcion_calculo(latex_str)
+    if err:
+        return err
+
+    cfg = esquemas[esquema]
+    puntos = [x0 + offset * h for offset in cfg["offsets"]]
+    valores = []
+    for i, xi in enumerate(puntos):
+        fxi, e = _eval_seguro(f_lam, xi, f"p_{i}")
+        if e:
+            return e
+        valores.append(fxi)
+
+    divisor = cfg["divisor"](h)
+    numerador = sum(coef * valor for coef, valor in zip(cfg["coef"], valores))
+    if abs(divisor) < _DIV_ZERO_THRESH:
+        return _error_parametro("El divisor del esquema quedó demasiado cerca de cero.")
+    aproximacion = numerador / divisor
+
+    exacto = None
+    exacto_latex = None
+    try:
+        derivada = sp.diff(f_sim, var, cfg["orden"])
+        exacto = _safe_float(sp.N(derivada.subs(var, sp.Float(x0)), 30))
+        if exacto is not None and math.isfinite(exacto):
+            exacto_latex = _math_inline(
+                f"f^{{({cfg['orden']})}}\\left({_latex_num(x0)}\\right)="
+                f"{_latex_num(exacto)}"
+            )
+        else:
+            exacto = None
+    except Exception:
+        exacto = None
+
+    error_abs, error_pct = _error_contra_referencia(aproximacion, exacto)
+    resultados = []
+    for i, (offset, coef, xi, fxi) in enumerate(zip(cfg["offsets"], cfg["coef"], puntos, valores)):
+        etiqueta = "x₀" if offset == 0 else ("x₀+h" if offset > 0 else "x₀-h")
+        resultados.append({
+            "i": i,
+            "punto": etiqueta,
+            "x_i": _fmt_num(xi),
+            "fx_i": _fmt_num(fxi),
+            "coef": coef,
+            "aporte": _fmt_num(coef * fxi),
+        })
+
+    grafica = _graficar_diferenciacion(
+        f_lam, var, x0, h, puntos, valores, aproximacion,
+        cfg["orden"], _COLOR["diferenciacion"],
+    )
+    estadisticas = [
+        {"label": "x₀", "value": _fmt_num(x0)},
+        {"label": "h", "value": _fmt_num(h)},
+        {"label": "Numerador", "value": _fmt_num(numerador)},
+        {"label": "Divisor", "value": _fmt_num(divisor)},
+    ]
+    if exacto is not None:
+        estadisticas.extend([
+            {"label": "Valor exacto", "value": _fmt_num(exacto)},
+            {"label": "Error absoluto", "value": _fmt_num(error_abs)},
+            {"label": "Error %", "value": "---" if error_pct is None else _fmt_num(error_pct)},
+        ])
+
+    return {
+        "error": False,
+        "tipo": "diferenciacion_numerica",
+        "titulo": cfg["nombre"],
+        "resultado": _fmt_num(aproximacion),
+        "resultado_label": "Derivada aproximada" if cfg["orden"] == 1 else "Segunda derivada aproximada",
+        "convergencia": (
+            "La diferencia centrada suele ser más precisa que adelante/atrás con el mismo h."
+            if esquema == "centrada" else
+            "El resultado depende mucho del tamaño de h: si h es muy grande hay error de truncamiento; si es muy pequeño hay redondeo."
+        ),
+        "funcion_latex": _math_inline(f"f\\left({sp.latex(var)}\\right)={_latex_expr(f_sim, expand=False)}"),
+        "formula_latex": _math_inline(cfg["formula"]),
+        "sustitucion_latex": _math_inline(
+            f"\\text{{aprox.}}=\\frac{{{_latex_num(numerador)}}}{{{_latex_num(divisor)}}}"
+            f"={_latex_num(aproximacion)}"
+        ),
+        "exacto_latex": exacto_latex,
+        "error_abs": None if error_abs is None else _fmt_num(error_abs),
+        "error_pct": None if error_pct is None else _fmt_num(error_pct),
+        "estadisticas": estadisticas,
+        "resultados": resultados,
+        "columnas": [
+            {"key": "i", "label": "#", "clase": "cell-iter"},
+            {"key": "punto", "label": "punto", "clase": "cell-blue"},
+            {"key": "x_i", "label": "x", "clase": "cell-blue"},
+            {"key": "fx_i", "label": "f(x)", "clase": "cell-result"},
+            {"key": "coef", "label": "coef.", "clase": "cell-purple"},
+            {"key": "aporte", "label": "coef·f(x)", "clase": "cell-yellow"},
+        ],
+        "grafica": grafica,
     }
 
 
@@ -2671,13 +3379,13 @@ def metodo_jacobi(matriz_texto, inicial_texto, tol, max_iter):
     if err:
         return err
 
-    A, b, B, c, rho, reordenado, err = _preparar_iterativo(A_original, b_original, "jacobi")
+    A, b, B, c, rho, analisis, err = _preparar_iterativo(A_original, b_original, "jacobi")
     if err:
         return err
 
     return _resultado_sistema_iterativo(
         "Jacobi", A_original, b_original, A, b, B, c, rho,
-        inicial, tol, max_iter, reordenado, _COLOR["jacobi"],
+        inicial, tol, max_iter, analisis, _COLOR["jacobi"],
     )
 
 
@@ -2697,13 +3405,13 @@ def metodo_gauss_seidel(matriz_texto, inicial_texto, tol, max_iter):
     if err:
         return err
 
-    A, b, B, c, rho, reordenado, err = _preparar_iterativo(A_original, b_original, "gauss_seidel")
+    A, b, B, c, rho, analisis, err = _preparar_iterativo(A_original, b_original, "gauss_seidel")
     if err:
         return err
 
     return _resultado_sistema_iterativo(
         "Gauss-Seidel", A_original, b_original, A, b, B, c, rho,
-        inicial, tol, max_iter, reordenado, _COLOR["gauss_seidel"],
+        inicial, tol, max_iter, analisis, _COLOR["gauss_seidel"],
     )
 
 
@@ -3393,10 +4101,14 @@ def analisis_inteligente_route():
 
 @app.route("/teoria_metodos")
 def teoria_metodos_route():
+    metodos_visibles = {"biseccion", "regla_falsa", "newton", "secante"}
+    familias_visibles = {"todos", "cerrado", "abierto"}
+    metodos = [m for m in obtener_teoria_metodos() if m["id"] in metodos_visibles]
+    familias = [f for f in obtener_familias_teoria() if f["id"] in familias_visibles]
     return render_template(
         "teoria_metodos.html",
-        metodos=obtener_teoria_metodos(),
-        familias=obtener_familias_teoria(),
+        metodos=metodos,
+        familias=familias,
     )
 
 
@@ -3496,6 +4208,63 @@ def taylor():
             datos = {"error": True, "titulo": "🛑 Error inesperado",
                      "mensaje": str(exc)[:300]}
     return render_template("taylor.html", datos=datos)
+
+
+@app.route("/trapecio", methods=["GET","POST"])
+def trapecio():
+    datos = None
+    if request.method == "POST":
+        try:
+            datos = metodo_trapecio(
+                request.form["ecuacion_latex"],
+                float(request.form["a"]),
+                float(request.form["b"]),
+                int(request.form["n"]),
+            )
+        except (KeyError, ValueError, OverflowError) as exc:
+            datos = _error_formulario(exc)
+        except Exception as exc:
+            datos = {"error": True, "titulo": "🛑 Error inesperado",
+                     "mensaje": str(exc)[:300]}
+    return render_template("trapecio.html", datos=datos)
+
+
+@app.route("/romberg", methods=["GET","POST"])
+def romberg():
+    datos = None
+    if request.method == "POST":
+        try:
+            datos = metodo_romberg(
+                request.form["ecuacion_latex"],
+                float(request.form["a"]),
+                float(request.form["b"]),
+                int(request.form["niveles"]),
+            )
+        except (KeyError, ValueError, OverflowError) as exc:
+            datos = _error_formulario(exc)
+        except Exception as exc:
+            datos = {"error": True, "titulo": "🛑 Error inesperado",
+                     "mensaje": str(exc)[:300]}
+    return render_template("romberg.html", datos=datos)
+
+
+@app.route("/diferenciacion_numerica", methods=["GET","POST"])
+def diferenciacion_numerica():
+    datos = None
+    if request.method == "POST":
+        try:
+            datos = metodo_diferenciacion_numerica(
+                request.form["ecuacion_latex"],
+                float(request.form["x0"]),
+                float(request.form["h"]),
+                request.form.get("esquema", "centrada"),
+            )
+        except (KeyError, ValueError, OverflowError) as exc:
+            datos = _error_formulario(exc)
+        except Exception as exc:
+            datos = {"error": True, "titulo": "🛑 Error inesperado",
+                     "mensaje": str(exc)[:300]}
+    return render_template("diferenciacion_numerica.html", datos=datos)
 
 
 @app.route("/punto_fijo", methods=["GET","POST"])

@@ -160,16 +160,17 @@
   </div>
   <h1>root</h1>
   <p>
-    Sistema interactivo de métodos numéricos para raíces, sistemas, interpolación,
-    regresión y teoría visual. Diseñado para probar, comparar y entender cada algoritmo.
+    Sistema interactivo de métodos numéricos para raíces, sistemas, integración,
+    diferenciación, interpolación, regresión y teoría visual. Diseñado para probar,
+    comparar y entender cada algoritmo.
   </p>
   <div class="home-stats">
     <div class="home-stat">
-      <strong>20</strong>
+      <strong>23</strong>
       <span>Métodos disponibles</span>
     </div>
     <div class="home-stat">
-      <strong>4</strong>
+      <strong>5</strong>
       <span>Familias de cálculo</span>
     </div>
     <div class="home-stat">
@@ -251,6 +252,28 @@
   </a>
 </div>
 
+<div class="section-label"><i class="bi bi-calculator"></i> Cálculo numérico</div>
+<div class="method-grid">
+  <a href="/trapecio" class="method-card" style="--card-accent: var(--accent-green)">
+    <div class="method-card-top"><span class="method-card-icon"><i class="bi bi-border-style"></i></span><span class="method-card-tag">Integración</span></div>
+    <p class="method-card-title">Regla del Trapecio</p>
+    <p class="method-card-desc">Aproxima áreas con trapecios compuestos sobre el intervalo.</p>
+    <div class="method-card-meta">h · pesos 1-2-1</div>
+  </a>
+  <a href="/romberg" class="method-card" style="--card-accent: var(--accent-blue)">
+    <div class="method-card-top"><span class="method-card-icon"><i class="bi bi-layers-half"></i></span><span class="method-card-tag">Integración</span></div>
+    <p class="method-card-title">Romberg</p>
+    <p class="method-card-desc">Refina trapecios con extrapolación de Richardson.</p>
+    <div class="method-card-meta">Tabla triangular · R(k,j)</div>
+  </a>
+  <a href="/diferenciacion_numerica" class="method-card" style="--card-accent: var(--accent-purple)">
+    <div class="method-card-top"><span class="method-card-icon"><i class="bi bi-graph-up"></i></span><span class="method-card-tag">Derivadas</span></div>
+    <p class="method-card-title">Diferenciación Numérica</p>
+    <p class="method-card-desc">Aproxima f'(x₀) o f''(x₀) con diferencias finitas.</p>
+    <div class="method-card-meta">Adelante · atrás · centrada</div>
+  </a>
+</div>
+
 <div class="section-label"><i class="bi bi-grid-3x3-gap"></i> Sistemas de ecuaciones</div>
 <div class="method-grid">
   <a href="/gauss" class="method-card" style="--card-accent: var(--accent-blue)">
@@ -272,16 +295,16 @@
     <div class="method-card-meta">PA = LU</div>
   </a>
   <a href="/jacobi" class="method-card" style="--card-accent: var(--accent-cyan)">
-    <div class="method-card-top"><span class="method-card-icon"><i class="bi bi-arrow-repeat"></i></span><span class="method-card-tag">Iterativo</span></div>
+    <div class="method-card-top"><span class="method-card-icon"><i class="bi bi-stars"></i></span><span class="method-card-tag">Estrella</span></div>
     <p class="method-card-title">Jacobi</p>
-    <p class="method-card-desc">Calcula cada variable usando solo la iteración anterior.</p>
-    <div class="method-card-meta">ρ(B) &lt; 1</div>
+    <p class="method-card-desc">Analiza radio espectral, dominancia y reordenamiento automático.</p>
+    <div class="method-card-meta">ρ(B) &lt; 1 · valores anteriores</div>
   </a>
   <a href="/gauss_seidel" class="method-card" style="--card-accent: var(--accent-yellow)">
-    <div class="method-card-top"><span class="method-card-icon"><i class="bi bi-arrow-down-up"></i></span><span class="method-card-tag">Iterativo</span></div>
+    <div class="method-card-top"><span class="method-card-icon"><i class="bi bi-stars"></i></span><span class="method-card-tag">Estrella</span></div>
     <p class="method-card-title">Gauss-Seidel</p>
-    <p class="method-card-desc">Usa valores nuevos inmediatamente dentro de la misma vuelta.</p>
-    <div class="method-card-meta">Secuencial · suele acelerar</div>
+    <p class="method-card-desc">Usa valores nuevos y compara convergencia con ρ(B), error y residuo.</p>
+    <div class="method-card-meta">ρ(B) &lt; 1 · suele acelerar</div>
   </a>
   <a href="/newton_sistemas" class="method-card" style="--card-accent: var(--accent-orange)">
     <div class="method-card-top"><span class="method-card-icon"><i class="bi bi-bounding-box-circles"></i></span><span class="method-card-tag">No lineal</span></div>

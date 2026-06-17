@@ -8,6 +8,12 @@
         {% if datos.consejo %}
           <p class="tip"><i class="bi bi-lightbulb"></i> {{ datos.consejo }}</p>
         {% endif %}
+        {% if datos.extras and datos.extras.radio_espectral %}
+          <p class="tip">
+            <i class="bi bi-activity"></i>
+            ρ(B) = {{ datos.extras.radio_espectral }} · {{ datos.extras.criterio_rho }}
+          </p>
+        {% endif %}
       </div>
     </div>
   {% else %}
@@ -27,6 +33,56 @@
         </div>
       </div>
     </div>
+
+    {% if datos.tipo == 'sistema_iterativo' %}
+      <div class="stats-strip">
+        <div class="mini-stat">
+          <div class="label">Radio espectral</div>
+          <div class="value">{{ datos.extras.radio_espectral }}</div>
+        </div>
+        <div class="mini-stat">
+          <div class="label">Criterio</div>
+          <div class="value" style="color:{% if datos.extras.radio_espectral_raw < 1 %}var(--accent-green){% else %}var(--accent-orange){% endif %};">
+            ρ(B) {% if datos.extras.radio_espectral_raw < 1 %}&lt;{% else %}≥{% endif %} 1
+          </div>
+        </div>
+        <div class="mini-stat">
+          <div class="label">Reordenamiento</div>
+          <div class="value" style="color:{% if datos.extras.reordenado %}var(--accent-yellow){% else %}var(--accent-blue){% endif %};">
+            {% if datos.extras.reordenado %}Aplicado{% else %}No necesario{% endif %}
+          </div>
+        </div>
+        <div class="mini-stat">
+          <div class="label">Iteraciones</div>
+          <div class="value">{{ datos.extras.iteraciones }}</div>
+        </div>
+        <div class="mini-stat">
+          <div class="label">Error final</div>
+          <div class="value">{{ datos.extras.error_final }}%</div>
+        </div>
+        <div class="mini-stat">
+          <div class="label">Residuo final</div>
+          <div class="value">{{ datos.extras.residuo_final }}</div>
+        </div>
+      </div>
+
+      <div class="alert-nm success">
+        <div class="alert-icon"><i class="bi bi-stars"></i></div>
+        <div>
+          <h5>Diagnóstico de convergencia</h5>
+          <p>
+            {{ datos.extras.criterio_rho }}. {{ datos.extras.diagnostico }}
+            {% if datos.extras.reordenado %}
+              Orden usado: {{ datos.extras.perm_texto }}.
+            {% endif %}
+          </p>
+          <p class="tip">
+            Se revisaron {{ datos.extras.candidatos_revisados }} ordenamientos candidatos.
+            ρ original = {{ datos.extras.rho_original }} · ρ usado = {{ datos.extras.rho_final }}.
+          </p>
+        </div>
+      </div>
+    {% endif %}
 
     {% if datos.grafica %}
       <div class="section-label"><i class="bi bi-graph-up"></i> Análisis visual</div>
@@ -148,7 +204,109 @@
         </div>
       {% endfor %}
     {% elif datos.tipo == 'sistema_iterativo' %}
-      <div class="section-label"><i class="bi bi-arrow-repeat"></i> Forma iterativa</div>
+      <div class="section-label"><i class="bi bi-shuffle"></i> Reordenamiento y dominancia</div>
+      <div class="row g-3 mb-4">
+        <div class="col-lg-6">
+          <div class="card-nm">
+            <div class="card-nm-header"><i class="bi bi-input-cursor"></i> Sistema ingresado</div>
+            <div class="card-nm-body" style="overflow-x:auto;">
+              <table class="table-nm">
+                <tbody>
+                  {% for fila in datos.extras.matriz_original %}
+                    {% set row_idx = loop.index0 %}
+                    <tr>
+                      {% for c in fila %}
+                        <td class="{% if loop.index0 == row_idx %}cell-yellow{% else %}cell-blue{% endif %}">{{ c }}</td>
+                      {% endfor %}
+                      <td class="cell-result">= {{ datos.extras.b_original[row_idx] }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+              <p style="font-size:0.75rem; color:var(--text-muted); margin:10px 0 0;">
+                Orden original: {{ datos.extras.perm_original_texto }}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="card-nm">
+            <div class="card-nm-header"><i class="bi bi-check2-circle"></i> Sistema usado</div>
+            <div class="card-nm-body" style="overflow-x:auto;">
+              <table class="table-nm">
+                <tbody>
+                  {% for fila in datos.extras.matriz_reordenada %}
+                    {% set row_idx = loop.index0 %}
+                    <tr>
+                      {% for c in fila %}
+                        <td class="{% if loop.index0 == row_idx %}cell-yellow{% else %}cell-blue{% endif %}">{{ c }}</td>
+                      {% endfor %}
+                      <td class="cell-result">= {{ datos.extras.b_reordenado[row_idx] }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+              <p style="font-size:0.75rem; color:var(--text-muted); margin:10px 0 0;">
+                Orden usado: {{ datos.extras.perm_texto }}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row g-3 mb-4">
+        <div class="col-lg-7">
+          <div class="card-nm">
+            <div class="card-nm-header"><i class="bi bi-rulers"></i> Dominancia diagonal del sistema usado</div>
+            <div class="card-nm-body" style="overflow-x:auto;">
+              <table class="table-nm">
+                <thead>
+                  <tr><th>Fila</th><th>|aᵢᵢ|</th><th>Σ resto</th><th>Margen</th><th>Estado</th></tr>
+                </thead>
+                <tbody>
+                  {% for fila in datos.extras.dominancia_final.filas %}
+                    <tr>
+                      <td class="cell-iter">{{ fila.fila }}</td>
+                      <td class="cell-yellow">{{ fila.diagonal }}</td>
+                      <td class="cell-blue">{{ fila.resto }}</td>
+                      <td class="{% if fila.ok %}cell-result{% else %}cell-error{% endif %}">{{ fila.margen }}</td>
+                      <td class="{% if fila.ok %}cell-result{% else %}cell-error{% endif %}">{{ fila.estado }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+              <p style="font-size:0.75rem; color:var(--text-muted); margin:10px 0 0;">
+                {{ datos.extras.dominancia_final.resumen }}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-5">
+          <div class="card-nm">
+            <div class="card-nm-header"><i class="bi bi-broadcast-pin"></i> Autovalores de B</div>
+            <div class="card-nm-body" style="overflow-x:auto;">
+              <table class="table-nm">
+                <thead>
+                  <tr><th>λ</th><th>|λ|</th></tr>
+                </thead>
+                <tbody>
+                  {% for val in datos.extras.autovalores %}
+                    <tr>
+                      <td class="cell-purple">{{ val.valor }}</td>
+                      <td class="cell-blue">{{ val.modulo }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+              <p style="font-size:0.75rem; color:var(--text-muted); margin:10px 0 0;">
+                ρ(B) es el mayor de estos módulos.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-label"><i class="bi bi-arrow-repeat"></i> Forma iterativa xᵏ⁺¹ = Bxᵏ + c</div>
       <div class="row g-3 mb-4">
         <div class="col-lg-8">
           <div class="card-nm">
@@ -196,6 +354,7 @@
           <thead>
             <tr>
               <th>#</th><th>x anterior</th><th>x nuevo</th><th>Error (%)</th><th>Residuo</th>
+              <th>Δ∞</th>
             </tr>
           </thead>
           <tbody>
@@ -206,6 +365,7 @@
                 <td class="cell-result">{{ fila.x_siguiente }}</td>
                 <td class="cell-error">{{ fila.ea }}</td>
                 <td class="cell-blue">{{ fila.residuo }}</td>
+                <td class="cell-purple">{{ fila.delta }}</td>
               </tr>
             {% endfor %}
           </tbody>

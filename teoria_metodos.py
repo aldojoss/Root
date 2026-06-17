@@ -79,6 +79,12 @@ FAMILIAS_TEORIA = [
         "resumen": "Series, polinomios y métodos para raíces más particulares.",
     },
     {
+        "id": "calculo",
+        "nombre": "Cálculo",
+        "icono": "bi-calculator",
+        "resumen": "Aproximan integrales y derivadas desde valores de una función.",
+    },
+    {
         "id": "sistema",
         "nombre": "Sistemas",
         "icono": "bi-grid-3x3-gap",
@@ -781,7 +787,12 @@ METODOS_TEORIA = [
         "Linealizar varias ecuaciones",
         "bi-diagram-3",
         "#fb7185",
-        r"J(x^{(k)})\,y=F(x^{(k)}),\qquad x^{(k+1)}=x^{(k)}-y",
+        (
+            r"\begin{pmatrix}x_{i+1}\\y_{i+1}\end{pmatrix}"
+            r"=\begin{pmatrix}x_i\\y_i\end{pmatrix}"
+            r"-[J(x_i,y_i)]^{-1}"
+            r"\begin{pmatrix}f_1(x_i,y_i)\\f_2(x_i,y_i)\end{pmatrix}"
+        ),
         (
             "Extiende Newton a varias variables. En cada iteración evalúa el vector F, "
             "arma la jacobiana y resuelve un sistema lineal para corregir la aproximación."
@@ -791,7 +802,7 @@ METODOS_TEORIA = [
         [
             "Muy potente para sistemas no lineales.",
             "La jacobiana muestra cómo interactúan las variables.",
-            r"La forma \( J y = F \) conecta no linealidad con álgebra lineal.",
+            r"La forma matricial \( X_{i+1}=X_i-J(X_i)^{-1}F(X_i) \) conecta no linealidad con álgebra lineal.",
         ],
         [
             "Puede fallar si la jacobiana es singular.",
@@ -803,7 +814,7 @@ METODOS_TEORIA = [
             "Elegir el vector inicial.",
             "Evaluar F en la semilla.",
             "Evaluar la matriz jacobiana.",
-            r"Resolver \( Jy=F \) y calcular \( x_{nuevo}=x-y \).",
+            r"Calcular la corrección con \( J(X_i)^{-1}F(X_i) \) y restarla al vector actual.",
         ],
         _demo(
             "newton-system",
@@ -1003,6 +1014,144 @@ METODOS_TEORIA = [
             ],
         ),
         "/regresion_lineal",
+    ),
+    _metodo(
+        "trapecio",
+        "calculo",
+        "Regla del Trapecio",
+        "Integración por segmentos rectos",
+        "bi-border-style",
+        "#2ee59d",
+        r"I\approx\frac{h}{2}\left[f(x_0)+2\sum_{i=1}^{n-1}f(x_i)+f(x_n)\right]",
+        (
+            "Aproxima el área bajo la curva dividiendo el intervalo en partes iguales. "
+            "En cada subintervalo reemplaza la curva por una recta y forma un trapecio."
+        ),
+        "Necesita una función evaluable en todos los nodos del intervalo y n >= 1.",
+        "Al aumentar n, h disminuye y la aproximación mejora si la función es suave.",
+        [
+            "Es muy fácil de aplicar y revisar a mano.",
+            "Funciona con cualquier cantidad de subintervalos.",
+            "La tabla de pesos 1, 2, 2, ..., 2, 1 es directa.",
+        ],
+        [
+            "Puede ser menos preciso que Romberg si se necesita mucha exactitud.",
+            "Si la función tiene discontinuidades, el área aproximada pierde sentido.",
+            "Curvas muy pronunciadas requieren más subintervalos.",
+        ],
+        [
+            r"Calcular \( h=(b-a)/n \).",
+            r"Construir los nodos \( x_i=a+ih \).",
+            r"Evaluar \( f(x_i) \) en todos los nodos.",
+            "Multiplicar extremos por 1 e interiores por 2.",
+            r"Aplicar \( I\approx h/2 \) por la suma ponderada.",
+        ],
+        _demo(
+            "integration-trapezoid",
+            "Área aproximada con trapecios",
+            5,
+            [
+                "Se fija el intervalo [a,b].",
+                "El intervalo se parte en subintervalos iguales.",
+                "Cada par de nodos define un trapecio.",
+                "Los extremos tienen peso 1.",
+                "Los nodos interiores tienen peso 2.",
+                "La suma ponderada produce el área aproximada.",
+            ],
+        ),
+        "/trapecio",
+    ),
+    _metodo(
+        "romberg",
+        "calculo",
+        "Integración de Romberg",
+        "Trapecio mejorado con Richardson",
+        "bi-layers-half",
+        "#6ea8ff",
+        r"R_{k,j}=R_{k,j-1}+\frac{R_{k,j-1}-R_{k-1,j-1}}{4^j-1}",
+        (
+            "Primero calcula trapecios cada vez más finos. Después usa extrapolación "
+            "de Richardson para cancelar parte del error y acelerar la precisión."
+        ),
+        "Requiere función suave y evaluable en todos los nodos generados por n = 1, 2, 4, ...",
+        "Con funciones suaves suele mejorar muy rápido al avanzar por la diagonal R(k,k).",
+        [
+            "Aprovecha el trapecio, pero lo refina de forma inteligente.",
+            "Muestra una tabla triangular muy clara para estudiar.",
+            "Puede lograr alta precisión con pocos niveles.",
+        ],
+        [
+            "No conviene si la función tiene discontinuidades internas.",
+            "Funciones muy oscilantes pueden necesitar más niveles.",
+            "La tabla crece y puede volverse pesada si se piden demasiados niveles.",
+        ],
+        [
+            r"Calcular \( R_{0,0} \) con trapecio simple.",
+            r"Duplicar subintervalos y calcular \( R_{k,0}=T_{2^k} \).",
+            r"Aplicar \( R_{k,j}=R_{k,j-1}+\frac{R_{k,j-1}-R_{k-1,j-1}}{4^j-1} \).",
+            "Avanzar por la tabla triangular.",
+            r"Tomar \( R_{m,m} \) como la mejor aproximación.",
+        ],
+        _demo(
+            "integration-romberg",
+            "Trapecios refinados + tabla R(k,j)",
+            5,
+            [
+                "Se calcula el primer trapecio.",
+                "Se duplica la cantidad de subintervalos.",
+                "Se llena la primera columna R(k,0).",
+                "Richardson combina estimaciones vecinas.",
+                "La diagonal mejora la aproximación.",
+                "El último R(k,k) se toma como resultado.",
+            ],
+        ),
+        "/romberg",
+    ),
+    _metodo(
+        "diferenciacion_numerica",
+        "calculo",
+        "Diferenciación Numérica",
+        "Derivadas con diferencias finitas",
+        "bi-graph-up",
+        "#c792ff",
+        r"f'(x_0)\approx\frac{f(x_0+h)-f(x_0-h)}{2h}",
+        (
+            "Aproxima la pendiente local usando valores cercanos a x0. "
+            "No necesita derivar simbólicamente, solo evaluar la función."
+        ),
+        "Necesita h > 0 y que la función exista en los puntos requeridos por el esquema.",
+        "El error depende de h: h grande aumenta truncamiento; h diminuto aumenta redondeo.",
+        [
+            "Sirve cuando solo se tienen evaluaciones de la función.",
+            "La fórmula centrada suele mejorar la precisión.",
+            "También permite aproximar segunda derivada.",
+        ],
+        [
+            "Un h mal elegido puede empeorar el resultado.",
+            "Cerca de discontinuidades no representa una derivada real.",
+            "Si f(x0+h) y f(x0-h) son muy parecidos puede haber cancelación.",
+        ],
+        [
+            "Elegir el punto x0 y el paso h.",
+            "Seleccionar adelante, atrás, centrada o segunda derivada.",
+            "Evaluar la función en los puntos vecinos.",
+            "Multiplicar cada valor por su coeficiente.",
+            "Dividir el numerador entre h, 2h o h² según el esquema.",
+        ],
+        _demo(
+            "differentiation",
+            "Pendiente local por puntos cercanos",
+            5,
+            [
+                "Se elige el punto x0.",
+                "Se marca un paso pequeño h.",
+                "Se evalúan puntos vecinos.",
+                "La recta secante aproxima la tangente.",
+                "La fórmula centrada usa información de ambos lados.",
+                "El resultado estima la derivada en x0.",
+            ],
+        ),
+        "/diferenciacion_numerica",
     ),
 ]
 

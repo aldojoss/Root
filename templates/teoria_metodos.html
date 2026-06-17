@@ -962,6 +962,100 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function drawDataScene(type, step, color) {
     const map = drawConceptAxes();
+    if (type === 'integration-trapezoid' || type === 'integration-romberg') {
+      const f = (x) => 1.05 + 0.22 * (x - 2.1) * (x - 2.1) + 0.35 * Math.sin(1.55 * x);
+      const nodes = [0.8, 1.85, 2.9, 3.95, 5.0];
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      for (let i = 0; i <= 120; i += 1) {
+        const x = 0.6 + (4.7 * i) / 120;
+        const y = f(x);
+        if (i === 0) ctx.moveTo(map.x(x), map.y(y));
+        else ctx.lineTo(map.x(x), map.y(y));
+      }
+      ctx.stroke();
+
+      if (type === 'integration-trapezoid') {
+        for (let i = 0; i < nodes.length - 1; i += 1) {
+          const xi = nodes[i], xj = nodes[i + 1];
+          const yi = f(xi), yj = f(xj);
+          ctx.fillStyle = i <= step ? 'rgba(46,229,157,0.16)' : 'rgba(141,152,184,0.08)';
+          ctx.strokeStyle = i <= step ? '#ffd98a' : 'rgba(141,152,184,0.36)';
+          ctx.beginPath();
+          ctx.moveTo(map.x(xi), map.y(0));
+          ctx.lineTo(map.x(xi), map.y(yi));
+          ctx.lineTo(map.x(xj), map.y(yj));
+          ctx.lineTo(map.x(xj), map.y(0));
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+        }
+        ctx.fillStyle = '#ffd98a';
+        ctx.font = '800 15px JetBrains Mono, monospace';
+        ctx.fillText('trapecios: pesos 1, 2, ..., 2, 1', 82, 52);
+      } else {
+        for (let i = 0; i < nodes.length - 1; i += 1) {
+          const xi = nodes[i], xj = nodes[i + 1];
+          const yi = f(xi), yj = f(xj);
+          ctx.fillStyle = i <= step ? 'rgba(110,168,255,0.15)' : 'rgba(141,152,184,0.07)';
+          ctx.strokeStyle = i <= step ? color : 'rgba(141,152,184,0.32)';
+          ctx.beginPath();
+          ctx.moveTo(map.x(xi), map.y(0));
+          ctx.lineTo(map.x(xi), map.y(yi));
+          ctx.lineTo(map.x(xj), map.y(yj));
+          ctx.lineTo(map.x(xj), map.y(0));
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+        }
+        const table = [['R₀₀', '', ''], ['R₁₀', 'R₁₁', ''], ['R₂₀', 'R₂₁', 'R₂₂']];
+        table.forEach((row, r) => {
+          row.forEach((label, c) => {
+            if (!label) return;
+            const active = c <= Math.min(step, r);
+            ctx.fillStyle = active ? 'rgba(110,168,255,0.20)' : 'rgba(141,152,184,0.12)';
+            ctx.strokeStyle = active ? color : 'rgba(141,152,184,0.32)';
+            roundedRect(555 + c * 72, 94 + r * 42, 58, 30, 8);
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = active ? '#dce5ff' : 'rgba(220,229,255,0.55)';
+            ctx.font = '800 12px JetBrains Mono, monospace';
+            ctx.fillText(label, 568 + c * 72, 114 + r * 42);
+          });
+        });
+        ctx.fillStyle = '#ffd98a';
+        ctx.font = '800 15px JetBrains Mono, monospace';
+        ctx.fillText('Romberg: trapecios + extrapolación R(k,j)', 82, 52);
+      }
+      nodes.forEach((x, i) => drawPoint(map, x, f(x), i <= step ? color : '#8d98b8', `x${subscriptNumber(i)}`));
+      return;
+    }
+
+    if (type === 'differentiation') {
+      const f = (x) => 0.75 + 0.28 * (x - 1.1) * (x - 1.1);
+      const x0 = 3.1;
+      const h = 0.75;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      for (let i = 0; i <= 120; i += 1) {
+        const x = 0.7 + (4.7 * i) / 120;
+        const y = f(x);
+        if (i === 0) ctx.moveTo(map.x(x), map.y(y));
+        else ctx.lineTo(map.x(x), map.y(y));
+      }
+      ctx.stroke();
+      drawPoint(map, x0 - h, f(x0 - h), '#ffd98a', 'x₀-h');
+      drawPoint(map, x0, f(x0), color, 'x₀');
+      drawPoint(map, x0 + h, f(x0 + h), '#ffd98a', 'x₀+h');
+      drawLine(map, x0 - h, f(x0 - h), x0 + h, f(x0 + h), '#ffd98a');
+      ctx.fillStyle = '#ffd98a';
+      ctx.font = '800 15px JetBrains Mono, monospace';
+      ctx.fillText('la secante local aproxima la tangente', 82, 52);
+      return;
+    }
+
     const points = [[0.8, 1.1], [1.7, 2.4], [2.8, 2.0], [3.8, 3.8], [5.0, 4.2]];
     points.forEach((p, i) => drawPoint(map, p[0], p[1], color, i === Math.min(step, points.length - 1) ? `P${subscriptNumber(i)}` : ''));
     if (type === 'regression') {
@@ -1155,10 +1249,10 @@ document.addEventListener('DOMContentLoaded', () => {
     else if (demo.tipo === 'lu') drawLUScene(step, color);
     else if (demo.tipo === 'iterative-linear') drawIterativeScene(step, color, method.id === 'gauss_seidel');
     else if (demo.tipo === 'newton-system') drawNewtonSystemScene(step, color);
-    else if (['interpolation-newton', 'interpolation-lagrange', 'splines', 'regression'].includes(demo.tipo)) drawDataScene(demo.tipo, step, color);
+    else if (['interpolation-newton', 'interpolation-lagrange', 'splines', 'regression', 'integration-trapezoid', 'integration-romberg', 'differentiation'].includes(demo.tipo)) drawDataScene(demo.tipo, step, color);
     else drawStageCards(demo, step, color);
 
-    if (!['taylor', 'horner', 'horner-newton', 'muller', 'bairstow', 'matrix', 'matrix-reduction', 'lu', 'iterative-linear', 'newton-system', 'interpolation-newton', 'interpolation-lagrange', 'splines', 'regression'].includes(demo.tipo)) {
+    if (!['taylor', 'horner', 'horner-newton', 'muller', 'bairstow', 'matrix', 'matrix-reduction', 'lu', 'iterative-linear', 'newton-system', 'interpolation-newton', 'interpolation-lagrange', 'splines', 'regression', 'integration-trapezoid', 'integration-romberg', 'differentiation'].includes(demo.tipo)) {
       drawStageCards(demo, step, color);
     }
     ctx.fillStyle = 'rgba(220,229,255,0.92)';
@@ -1170,7 +1264,11 @@ document.addEventListener('DOMContentLoaded', () => {
     setText('demoSubtitle', stage);
     readoutFunction.textContent = demo.modelo || method.nombre;
     readoutApprox.textContent = `Paso ${step + 1}: ${stage.split('.')[0]}`;
-    readoutError.textContent = method.familia === 'datos' ? 'Clave: no extrapolar sin criterio' : 'Clave: revisar condiciones';
+    readoutError.textContent = method.familia === 'datos'
+      ? 'Clave: no extrapolar sin criterio'
+      : method.familia === 'calculo'
+        ? 'Clave: revisar dominio, h y nodos'
+        : 'Clave: revisar condiciones';
     badge.textContent = `${step}/${range.max}`;
   }
 

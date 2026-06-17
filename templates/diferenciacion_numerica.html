@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+{% block contenido %}
+<script src="https://www.desmos.com/api/v1.8/calculator.js?apiKey=dcb31709b452b1cf9dc26972add0fda6"></script>
+
+<div class="page-header">
+  <div class="method-icon" style="background:rgba(199,146,255,0.15);">
+    <i class="bi bi-graph-up" style="color:#c792ff;"></i>
+  </div>
+  <div>
+    <h2 style="color:#c792ff;">Diferenciación Numérica</h2>
+    <p>
+      Aproxima derivadas con diferencias finitas usando valores de la función cerca de x₀.
+      Es útil cuando no se quiere o no se puede derivar manualmente.
+    </p>
+  </div>
+</div>
+
+<div class="card-nm">
+  <div class="card-nm-header"><i class="bi bi-sliders"></i> Parámetros de diferenciación</div>
+  <div class="card-nm-body">
+    <form method="POST">
+      <div class="row g-3 mb-3">
+        <div class="col-md-3">
+          <label class="form-label-nm">Punto x₀</label>
+          <input type="number" step="any" name="x0" class="form-control-nm"
+                 required placeholder="2" value="{{ request.form.get('x0','') }}">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label-nm">Paso h</label>
+          <input type="number" step="any" name="h" min="0.0000000001" class="form-control-nm"
+                 required placeholder="0.01" value="{{ request.form.get('h','') }}">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label-nm">Esquema</label>
+          {% set esquema_actual = request.form.get('esquema', 'centrada') %}
+          <select name="esquema" class="form-control-nm">
+            <option value="centrada" {% if esquema_actual == 'centrada' %}selected{% endif %}>Diferencia centrada f'(x₀)</option>
+            <option value="adelante" {% if esquema_actual == 'adelante' %}selected{% endif %}>Diferencia hacia adelante f'(x₀)</option>
+            <option value="atras" {% if esquema_actual == 'atras' %}selected{% endif %}>Diferencia hacia atrás f'(x₀)</option>
+            <option value="segunda_centrada" {% if esquema_actual == 'segunda_centrada' %}selected{% endif %}>Segunda derivada centrada f''(x₀)</option>
+          </select>
+        </div>
+      </div>
+      {% include '_math_input.html' %}
+      <button type="submit" class="btn-nm btn-purple-nm">
+        <i class="bi bi-calculator"></i> Aproximar derivada
+      </button>
+    </form>
+  </div>
+</div>
+
+<div class="section-label"><i class="bi bi-graph-up"></i> Gráfica interactiva</div>
+<div class="desmos-wrap mb-4">
+  <div id="desmos" style="width:100%; height:340px;"></div>
+</div>
+
+{% include '_resultados_calculo.html' %}
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const mf = document.getElementById('formula');
+  const calc = createDarkDesmos(document.getElementById('desmos'));
+  function update() {
+    calc.setExpression({ id:'f', latex:'f(x)=' + (mf.value || '0'), color:'#c792ff' });
+  }
+  mf.addEventListener('input', update);
+  setTimeout(update, 350);
+});
+</script>
+{% endblock %}

@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% block contenido %}
+<script src="https://www.desmos.com/api/v1.8/calculator.js?apiKey=dcb31709b452b1cf9dc26972add0fda6"></script>
+
+<div class="page-header">
+  <div class="method-icon" style="background:rgba(110,168,255,0.15);">
+    <i class="bi bi-layers-half" style="color:#6ea8ff;"></i>
+  </div>
+  <div>
+    <h2 style="color:#6ea8ff;">Integración de Romberg</h2>
+    <p>
+      Parte de la regla del trapecio con subintervalos cada vez más finos y luego
+      aplica extrapolación de Richardson para mejorar la aproximación.
+    </p>
+  </div>
+</div>
+
+<div class="card-nm">
+  <div class="card-nm-header"><i class="bi bi-sliders"></i> Parámetros de integración</div>
+  <div class="card-nm-body">
+    <form method="POST">
+      <div class="row g-3 mb-3">
+        <div class="col-md-4">
+          <label class="form-label-nm">Límite inferior a</label>
+          <input type="number" step="any" name="a" class="form-control-nm"
+                 required placeholder="0" value="{{ request.form.get('a','') }}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label-nm">Límite superior b</label>
+          <input type="number" step="any" name="b" class="form-control-nm"
+                 required placeholder="1" value="{{ request.form.get('b','') }}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label-nm">Niveles Romberg (2–8)</label>
+          <input type="number" name="niveles" min="2" max="8" class="form-control-nm"
+                 required placeholder="5" value="{{ request.form.get('niveles','') }}">
+        </div>
+      </div>
+      {% include '_math_input.html' %}
+      <button type="submit" class="btn-nm btn-primary-nm">
+        <i class="bi bi-calculator"></i> Integrar
+      </button>
+    </form>
+  </div>
+</div>
+
+<div class="section-label"><i class="bi bi-graph-up"></i> Gráfica interactiva</div>
+<div class="desmos-wrap mb-4">
+  <div id="desmos" style="width:100%; height:340px;"></div>
+</div>
+
+{% include '_resultados_calculo.html' %}
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const mf = document.getElementById('formula');
+  const calc = createDarkDesmos(document.getElementById('desmos'));
+  function update() {
+    calc.setExpression({ id:'f', latex:'f(x)=' + (mf.value || '0'), color:'#6ea8ff' });
+  }
+  mf.addEventListener('input', update);
+  setTimeout(update, 350);
+});
+</script>
+{% endblock %}

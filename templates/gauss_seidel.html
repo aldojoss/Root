@@ -2,19 +2,47 @@
 {% block contenido %}
 <div class="page-header">
   <div class="method-icon" style="background:rgba(248,214,109,0.15);">
-    <i class="bi bi-arrow-down-up" style="color:#f8d66d;"></i>
+    <i class="bi bi-stars" style="color:#f8d66d;"></i>
   </div>
   <div>
-    <h2 style="color:#f8d66d;">Método de Gauss-Seidel</h2>
+    <h2 style="color:#f8d66d;">Gauss-Seidel · Método estrella</h2>
     <p>
-      Resuelve Ax=b usando cada valor nuevo tan pronto como se calcula.
-      Incluye control de convergencia por radio espectral, error relativo y residuo.
+      Resuelve Ax=b usando cada valor nuevo tan pronto como se calcula. El sistema analiza
+      ρ(B), reordena filas cuando conviene y compara error relativo contra residuo real.
     </p>
   </div>
 </div>
 
+<div class="star-method-banner">
+  <div class="kicker"><i class="bi bi-broadcast-pin"></i> Laboratorio iterativo avanzado</div>
+  <h3>Gauss-Seidel aprovecha los valores nuevos al instante</h3>
+  <p>
+    Su forma \(x^{(k+1)} = Bx^{(k)} + c\) usa \(D+L\), por eso suele converger
+    con menos iteraciones que Jacobi. La app no se queda en la tabla: calcula
+    Radio espectral, autovalores, Dominancia diagonal y Reordenamiento automático.
+  </p>
+  <div class="star-points">
+    <div class="star-point">
+      <strong><i class="bi bi-activity"></i> ρ(B) como juez</strong>
+      <span>El radio espectral decide si la iteración está matemáticamente respaldada.</span>
+    </div>
+    <div class="star-point">
+      <strong><i class="bi bi-shuffle"></i> Reordenamiento</strong>
+      <span>El orden puede cambiar la matriz B y acelerar o arruinar la convergencia.</span>
+    </div>
+    <div class="star-point">
+      <strong><i class="bi bi-rulers"></i> Dominancia</strong>
+      <span>Se muestra el margen diagonal fila por fila para justificar el método.</span>
+    </div>
+    <div class="star-point">
+      <strong><i class="bi bi-speedometer2"></i> Comparación real</strong>
+      <span>Se ve error, Δ∞ y residuo ||Ax-b||∞ en cada vuelta.</span>
+    </div>
+  </div>
+</div>
+
 <div class="card-nm">
-  <div class="card-nm-header"><i class="bi bi-sliders"></i> Sistema e iteración</div>
+  <div class="card-nm-header"><i class="bi bi-sliders"></i> Sistema e iteración Gauss-Seidel</div>
   <div class="card-nm-body">
     <form method="POST">
       {% set matrix_id = 'gauss_seidel' %}

@@ -72,6 +72,31 @@ class NumericMethodsTest(unittest.TestCase):
         self.assertEqual(len(datos["resultados"]), 10)
         self.assertAlmostEqual(float(datos["aprox_final"]), 6.0, places=4)
 
+    def test_numerical_calculus_methods(self):
+        trapecio = home.metodo_trapecio("x^2", 0, 1, 100)
+        romberg = home.metodo_romberg("x^2", 0, 1, 5)
+        derivada = home.metodo_diferenciacion_numerica("x^2", 2, 0.001, "centrada")
+        segunda = home.metodo_diferenciacion_numerica("x^3", 2, 0.001, "segunda_centrada")
+
+        for datos in [trapecio, romberg, derivada, segunda]:
+            self.assertSuccessWithGraph(datos)
+
+        self.assertAlmostEqual(float(trapecio["resultado"]), 1 / 3, places=4)
+        self.assertAlmostEqual(float(romberg["resultado"]), 1 / 3, places=8)
+        self.assertEqual(romberg.get("tipo"), "romberg")
+        self.assertAlmostEqual(float(derivada["resultado"]), 4.0, places=6)
+        self.assertAlmostEqual(float(segunda["resultado"]), 12.0, places=4)
+
+        romberg_nivel = home.metodo_romberg("x^2", 0, 1, 1)
+        h_invalido = home.metodo_diferenciacion_numerica("x^2", 2, 0, "centrada")
+        singular = home.metodo_trapecio("1/x", -1, 1, 10)
+        singular_romberg = home.metodo_romberg("1/x", -1, 1, 4)
+
+        self.assertTrue(romberg_nivel.get("error"))
+        self.assertTrue(h_invalido.get("error"))
+        self.assertTrue(singular.get("error"))
+        self.assertTrue(singular_romberg.get("error"))
+
     def test_destructive_scenarios_are_controlled(self):
         punto_complejo = home.metodo_punto_fijo("x^2+x+1", 0, 0.01, 50)
         punto_suave = home.metodo_punto_fijo("e^{-x}-x", 0, 0.01, 80)
@@ -113,6 +138,9 @@ class NumericMethodsTest(unittest.TestCase):
             home.metodo_newton_raphson("x^2-4", 3, 0, 20),
             home.metodo_secante("x^2-4", 0, 3, 0.01, 2000),
             home.metodo_taylor("e^x", 0, 1, 3.5),
+            home.metodo_trapecio("x^2", 0, 1, 250),
+            home.metodo_romberg("x^2", 0, 1, 9),
+            home.metodo_diferenciacion_numerica("x^2", 2, -0.1, "centrada"),
             home.metodo_horner("x^2-4", float("nan")),
             home.metodo_horner("x^2-4", 1e308),
             home.metodo_bairstow("x^3-6*x^2+11*x-6", 0.5, -0.5, 0.01, 0),
@@ -158,8 +186,20 @@ class NumericMethodsTest(unittest.TestCase):
                 self.assertEqual(datos.get("tipo"), "sistema_iterativo")
                 self.assertTrue(datos.get("resultados"))
                 self.assertTrue(_png_ok(datos))
+                self.assertIn("radio_espectral", datos["extras"])
+                self.assertIn("dominancia_final", datos["extras"])
+                self.assertIn("autovalores", datos["extras"])
+                self.assertLess(float(datos["extras"]["radio_espectral"]), 1.0)
                 for got, exp in zip(datos["solucion"], expected):
                     self.assertAlmostEqual(float(got), exp, places=4)
+
+        permuted = "-1 11 -1 22\n10 -1 2 6\n2 -1 10 -10"
+        reordenado = home.metodo_jacobi(permuted, "0,0,0", 0.0001, 100)
+        self.assertFalse(reordenado.get("error"), reordenado)
+        self.assertTrue(reordenado["extras"]["reordenado"])
+        self.assertEqual(reordenado["extras"]["perm_texto"], "F2 → F1 → F3")
+        for got, exp in zip(reordenado["solucion"], expected):
+            self.assertAlmostEqual(float(got), exp, places=4)
 
     def test_linear_system_errors_are_controlled(self):
         malformed = home.metodo_gauss("1 2\n3 4")
@@ -267,6 +307,7 @@ class FlaskRoutesTest(unittest.TestCase):
         for path in [
             "/", "/biseccion", "/falsa_posicion", "/newton", "/secante",
             "/taylor", "/punto_fijo", "/horner", "/horner_newton",
+            "/trapecio", "/romberg", "/diferenciacion_numerica",
             "/muller", "/bairstow", "/gauss", "/gauss_jordan", "/lu",
             "/jacobi", "/gauss_seidel", "/newton_sistemas",
             "/newton_diferencias", "/lagrange",
@@ -289,6 +330,10 @@ class FlaskRoutesTest(unittest.TestCase):
                 self.assertIn('name="matriz"', html)
                 self.assertNotIn("<textarea name=\"matriz\"", html)
 
+    def test_removed_simpson_route_is_not_available(self):
+        response = self.client.get("/simpson")
+        self.assertEqual(response.status_code, 404)
+
     def test_valid_posts_render_results_without_server_errors(self):
         forms = {
             "/biseccion": {"ecuacion_latex": "x^2-4", "xl": "0", "xu": "3", "tol": "0.001", "max_iter": "80"},
@@ -296,6 +341,9 @@ class FlaskRoutesTest(unittest.TestCase):
             "/newton": {"ecuacion_latex": "x^2-4", "x0": "3", "tol": "0.001", "max_iter": "80"},
             "/secante": {"ecuacion_latex": "x^2-4", "x0": "0", "x1": "3", "tol": "0.001", "max_iter": "80"},
             "/taylor": {"ecuacion_latex": "e^x", "x0": "0", "x_eval": "1", "n_terminos": "12"},
+            "/trapecio": {"ecuacion_latex": "x^2", "a": "0", "b": "1", "n": "10"},
+            "/romberg": {"ecuacion_latex": "x^2", "a": "0", "b": "1", "niveles": "5"},
+            "/diferenciacion_numerica": {"ecuacion_latex": "x^2", "x0": "2", "h": "0.01", "esquema": "centrada"},
             "/punto_fijo": {"ecuacion_latex": "x^2-4", "x0": "3", "tol": "0.001", "max_iter": "80"},
             "/horner": {"ecuacion_latex": "x^3-6*x^2+11*x-6", "x0": "2"},
             "/horner_newton": {"ecuacion_latex": "x^3-6*x^2+11*x-6", "x0": "1.5", "tol": "0.001", "max_iter": "80"},
@@ -341,7 +389,7 @@ class FlaskRoutesTest(unittest.TestCase):
         self.assertIn("Entrada inválida", html)
         self.assertNotIn("Error inesperado", html)
 
-    def test_interactive_theory_route_contains_all_project_methods(self):
+    def test_interactive_theory_route_is_limited_to_closed_and_open_methods(self):
         response = self.client.get("/teoria_metodos")
         html = response.data.decode("utf-8", errors="replace")
 
@@ -352,26 +400,21 @@ class FlaskRoutesTest(unittest.TestCase):
             "Regla Falsa",
             "Newton-Raphson",
             "Secante",
-            "Punto Fijo",
-            "Series de Taylor",
-            "Horner",
-            "Horner-Newton",
-            "Müller",
-            "Bairstow",
-            "Eliminación de Gauss",
-            "Gauss-Jordan",
-            "Factorización LU",
-            "Jacobi",
-            "Gauss-Seidel",
-            "Newton para Sistemas",
-            "Newton Dif. Divididas",
-            "Lagrange",
-            "Trazadores Cúbicos",
-            "Regresión Lineal",
             "methodSearch",
             "methodDemoCanvas",
         ]:
             self.assertIn(text, html)
+        for visible_id in ["biseccion", "regla_falsa", "newton", "secante"]:
+            self.assertIn(f'data-method-id="{visible_id}"', html)
+        for hidden_id in [
+            "punto_fijo",
+            "taylor",
+            "jacobi",
+            "gauss_seidel",
+            "newton_diferencias",
+            "regresion_lineal",
+        ]:
+            self.assertNotIn(f'data-method-id="{hidden_id}"', html)
         self.assertNotIn("Error inesperado", html)
 
     def test_smart_analysis_posts_compare_methods(self):

@@ -5,7 +5,7 @@
     <i class="bi bi-stars" style="color:#4ddde0;"></i>
   </div>
   <div>
-    <h2 style="color:#4ddde0;">Jacobi · Método estrella</h2>
+    <h2 style="color:#4ddde0;">Jacobi ·</h2>
     <p>
       Resuelve Ax=b con una matriz de iteración B. El sistema analiza ρ(B),
       prueba reordenamientos de filas y muestra si la convergencia está respaldada matemáticamente.
@@ -44,6 +44,19 @@
 <div class="card-nm">
   <div class="card-nm-header"><i class="bi bi-sliders"></i> Sistema e iteración Jacobi</div>
   <div class="card-nm-body">
+    
+    <div class="row mb-3">
+        <div class="col-md-4 col-sm-6">
+            <label for="historialSistemas" class="form-label-nm fw-bold" style="font-size: 0.9em;">
+                <i class="bi bi-clock-history"></i> Cargar sistema:
+            </label>
+            <select id="historialSistemas" class="form-select form-select-sm" style="background-color: var(--bg-color); color: var(--text-color); border: 1px solid var(--border-color);" onchange="cargarSistema()">
+                <option value="">-- Seleccionar --</option>
+                <option value="original">Sistema Base</option>
+                <option value="corriente">Sistema Corriente</option>
+            </select>
+        </div>
+    </div>
     <form method="POST">
       {% set matrix_id = 'jacobi' %}
       {% set matrix_default = "10 -1 2 6\n-1 11 -1 22\n2 -1 10 -10" %}
@@ -74,4 +87,48 @@
 </div>
 
 {% include '_resultados_sistemas.html' %}
+
+<script>
+function cargarSistema() {
+    const selector = document.getElementById("historialSistemas");
+    const idSeleccionado = selector.value;
+    
+    if (!idSeleccionado) return;
+
+    // Aquí se guardan los sistemas. 
+    // Asegurate de editar los números de "corriente" por los de tu ejercicio real para la defensa.
+    const sistemasGuardados = {
+        "original": "10 -1 2 6\n-1 11 -1 22\n2 -1 10 -10",
+        "corriente": "1 -1 1 0\n2.5 4.8 0 2.5\n0 4.8 3.8 4.3"
+    };
+
+    const matrizString = sistemasGuardados[idSeleccionado];
+    if (!matrizString) return;
+
+    // Verifica que el tamaño de la matriz en el editor sea de 3x3
+    const sizeSelect = document.querySelector('.matrix-size');
+    if (sizeSelect && sizeSelect.value !== "3") {
+        sizeSelect.value = "3";
+        sizeSelect.dispatchEvent(new Event('change')); // Fuerza al editor a redibujarse
+    }
+
+    // Un pequeño delay para asegurar que el DOM generó las casillas antes de llenarlas
+    setTimeout(() => {
+        const filas = matrizString.split('\n').map(f => f.trim().split(/\s+/));
+        const celdas = document.querySelectorAll('.matrix-cell');
+        
+        let celdaIndex = 0;
+        for (let i = 0; i < filas.length; i++) {
+            for (let j = 0; j < filas[i].length; j++) {
+                if (celdas[celdaIndex]) {
+                    celdas[celdaIndex].value = filas[i][j];
+                    // Simula un ingreso manual para que _matrix_editor.html actualice la data oculta
+                    celdas[celdaIndex].dispatchEvent(new Event('input', { bubbles: true }));
+                }
+                celdaIndex++;
+            }
+        }
+    }, 50);
+}
+</script>
 {% endblock %}

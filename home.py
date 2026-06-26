@@ -1,25 +1,4 @@
-# =============================================================================
-# home.py  —  Métodos Numéricos  (Nivel Producción / Validaciones Robustas)
-# =============================================================================
-# BUGS CORREGIDOS EN ESTA VERSIÓN:
-#   - Gráficas con ejes negros: forzamos colores en cada figura individualmente
-#     en vez de depender solo de rcParams (que Flask puede resetear entre requests)
-#   - Secante/divergencia falsa: _DIVERGE_THRESH subido a 1e15; mejor manejo
-#     de funciones que crecen antes de converger
-#   - Bairstow deflación incorrecta: cociente era b[:n-1] pero cuando grado=3
-#     produce solo 2 coefs (grado 1), saltando el caso cuadrático. Corregido
-#     a b[:n-1] con verificación de longitud antes de continuar el while
-#   - Bairstow raíces complejas: threshold Im < 1e-6 demasiado estricto para
-#     raíces que matemáticamente son reales pero tienen error de punto flotante
-#     de magnitud mayor. Subido a 1e-4
-#   - Bairstow tabla completa: mostrar TODAS las filas, no solo las últimas 5
-#   - Muller ea tipo: abs() de complejo ya da float, pero ea.real podía fallar
-#     si ea era ya un float puro. Ahora se usa float(ea) en todos los casos
-#   - _trazar_funcion: el clip 1e6 cortaba curvas de polinomios de alto grado.
-#     Ahora el clip usa el rango real de y_vals visible
-#   - Ejes de color negro en gráficas oscuras: se aplican colores directamente
-#     en cada ax y fig, no solo en rcParams
-# =============================================================================
+
 
 from flask import Flask, render_template, request
 import sympy as sp
@@ -47,7 +26,7 @@ _DIV_ZERO_THRESH = 1e-12    # Denominador mínimo tolerable
 _DIVERGE_THRESH  = 1e15     # FIX: era 1e10, demasiado estricto para algunas funciones
 _ROUND_DIGITS    = 8
 _COMPLEX_THRESH  = 1e-4     # FIX: era 1e-6, ahora más tolerante con errores de float
-_MAX_ITER        = 1000     # Límite operativo para evitar respuestas enormes o cuelgues
+_MAX_ITER        = 1000     # Limite operativo para evitar respuestas enormes o cuelgues
 _PARSER_TRANSFORMATIONS = standard_transformations + (
     implicit_multiplication_application,
     convert_xor,
@@ -59,7 +38,7 @@ _PARSER_TRANSFORMATIONS = standard_transformations + (
 _BG     = "#0d1117"
 _BG2    = "#181b20"
 _GRID   = "#2a313d"
-_AXIS   = "#5e6a7d"     # Color de los ejes (visible en fondo oscuro)
+_AXIS   = "#5e6a7d"     
 _TICK   = "#a0acc0"
 _TEXT   = "#f4f7fb"
 _LEGEND = "#12161d"
@@ -98,7 +77,7 @@ _COLORES_RAICES = [
 
 
 # =============================================================================
-# HELPERS COMPARTIDOS
+# funciones compartidas para los metodos que se reciclaran
 # =============================================================================
 
 def _safe_float(val):
@@ -386,11 +365,11 @@ def _trazar_funcion(ax, f_lam, x_min, x_max, color, label, n=700):
         with np.errstate(all="ignore"):
             raw = f_lam(xs)
 
-        # Escalar si lambdify devolvió escalar (función constante)
+        
         if isinstance(raw, (int, float, complex)):
             raw = np.full(n, complex(raw).real)
 
-        # Convertir a float real, enmascarar complejos y NaN
+        
         ys = np.array([
             float(complex(v).real) if (not isinstance(v, float) or math.isfinite(v))
             and abs(complex(v).imag) < abs(complex(v).real) * 0.01 + 1
@@ -398,7 +377,7 @@ def _trazar_funcion(ax, f_lam, x_min, x_max, color, label, n=700):
             for v in raw
         ], dtype=float)
 
-        # FIX: clip dinámico con percentil 99 en vez de valor fijo
+        
         finitos = ys[np.isfinite(ys)]
         if len(finitos) > 10:
             p01, p99 = np.percentile(finitos, 1), np.percentile(finitos, 99)
@@ -490,7 +469,7 @@ def _extraer_coeficientes(f_sim, x):
 
 
 # =============================================================================
-# HELPERS — PUNTOS (INTERPOLACIÓN Y REGRESIÓN)
+# HELPERS para las inter y extrapolaciones, regresión y splines
 # =============================================================================
 def _fmt_expr(expr, digits=_ROUND_DIGITS):
     try:
@@ -629,7 +608,7 @@ def _grafica_interpolacion(puntos, expr, var, color, etiqueta, x_eval=None, y_ev
 
 
 # =============================================================================
-# HELPERS — SISTEMAS DE ECUACIONES
+# HELPERS para sistemas de ecuaciones
 # =============================================================================
 def _parse_numero_matriz(token):
     token = str(token).strip()
@@ -1327,7 +1306,7 @@ def _grafica_newton_sistemas(exprs, variables, puntos):
         return None
 
 # =============================================================================
-# MÉTODO 1 — BISECCIÓN
+#  BISECCIÓN
 # =============================================================================
 def metodo_biseccion(latex_str, xl, xu, tol, max_iter):
     """
@@ -1428,7 +1407,7 @@ def metodo_biseccion(latex_str, xl, xu, tol, max_iter):
 
 
 # =============================================================================
-# MÉTODO 2 — REGLA FALSA
+#  REGLA FALSA
 # =============================================================================
 def metodo_falsa_posicion(latex_str, xl, xu, tol, max_iter):
     """
@@ -1535,7 +1514,7 @@ def metodo_falsa_posicion(latex_str, xl, xu, tol, max_iter):
 
 
 # =============================================================================
-# MÉTODO 3 — NEWTON-RAPHSON
+# NEWTON-RAPHSON
 # =============================================================================
 def metodo_newton_raphson(latex_str, x0, tol, max_iter):
     """
@@ -1778,7 +1757,7 @@ def metodo_secante(latex_str, x0, x1, tol, max_iter):
 
 
 # =============================================================================
-# MÉTODO 5 — SERIE DE TAYLOR
+# SERIE DE TAYLOR
 # =============================================================================
 def metodo_taylor(latex_str, x0, x_eval, n_terminos):
     """
@@ -1914,7 +1893,7 @@ def metodo_taylor(latex_str, x0, x_eval, n_terminos):
 
 
 # =============================================================================
-# MÉTODOS DE CÁLCULO NUMÉRICO — INTEGRACIÓN Y DIFERENCIACIÓN
+# INTEGRACIÓN Y DIFERENCIACIÓN
 # =============================================================================
 def _validar_intervalo_integracion(f_sim, var, a, b):
     """Valida intervalo no degenerado y sin singularidades detectables."""
@@ -2401,7 +2380,7 @@ def metodo_diferenciacion_numerica(latex_str, x0, h, esquema="centrada"):
 
 
 # =============================================================================
-# MÉTODO 6 — PUNTO FIJO (DESPEJE AUTOMÁTICO)
+#  PUNTO FIJO 
 # =============================================================================
 def metodo_punto_fijo(latex_fx_str, x0, tol, max_iter):
     """
@@ -2588,7 +2567,7 @@ def metodo_punto_fijo(latex_fx_str, x0, tol, max_iter):
 
 
 # =============================================================================
-# MÉTODO 7 — HORNER
+#  HORNER
 # =============================================================================
 def metodo_horner(latex_str, x0):
     """
@@ -2659,7 +2638,7 @@ def metodo_horner(latex_str, x0):
 
 
 # =============================================================================
-# MÉTODO 8 — HORNER-NEWTON (BIRGE-VIETA)
+# HORNER-NEWTON 
 # =============================================================================
 def metodo_horner_newton(latex_str, x0, tol, max_iter):
     """
@@ -2769,7 +2748,7 @@ def metodo_horner_newton(latex_str, x0, tol, max_iter):
 
 
 # =============================================================================
-# MÉTODO 9 — MÜLLER
+# MÜLLER
 # =============================================================================
 def metodo_muller(latex_str, x0, x1, x2, tol, max_iter):
     """
@@ -2940,7 +2919,7 @@ def metodo_muller(latex_str, x0, x1, x2, tol, max_iter):
 
 
 # =============================================================================
-# MÉTODO 10 — BAIRSTOW (DEFLACIÓN COMPLETA)
+# MBAIRSTOW 
 # =============================================================================
 def metodo_bairstow(latex_str, r0, s0, tol, max_iter):
     """
@@ -3171,7 +3150,7 @@ def metodo_bairstow(latex_str, r0, s0, tol, max_iter):
 
 
 # =============================================================================
-# MÉTODO 11 — ELIMINACIÓN DE GAUSS (SEC LINEALES)
+#  ELIMINACIÓN DE GAUSS
 # =============================================================================
 def metodo_gauss(matriz_texto):
     A, b, err = _parse_matriz_aumentada(matriz_texto)
@@ -3233,7 +3212,7 @@ def metodo_gauss(matriz_texto):
 
 
 # =============================================================================
-# MÉTODO 12 — GAUSS-JORDAN (SEC LINEALES)
+#  GAUSS-JORDAN 
 # =============================================================================
 def metodo_gauss_jordan(matriz_texto):
     A, b, err = _parse_matriz_aumentada(matriz_texto)
@@ -3288,7 +3267,7 @@ def metodo_gauss_jordan(matriz_texto):
 
 
 # =============================================================================
-# MÉTODO 13 — FACTORIZACIÓN LU (PA = LU)
+#FACTORIZACIÓN LU (PA = LU)
 # =============================================================================
 def metodo_lu(matriz_texto):
     A, b, err = _parse_matriz_aumentada(matriz_texto)
@@ -3364,7 +3343,7 @@ def metodo_lu(matriz_texto):
 
 
 # =============================================================================
-# MÉTODO 14 — JACOBI (SISTEMAS LINEALES ITERATIVOS)
+#  JACOBI el goat
 # =============================================================================
 def metodo_jacobi(matriz_texto, inicial_texto, tol, max_iter):
     err = _validar_tol_iter(tol, max_iter)
@@ -3390,7 +3369,7 @@ def metodo_jacobi(matriz_texto, inicial_texto, tol, max_iter):
 
 
 # =============================================================================
-# MÉTODO 15 — GAUSS-SEIDEL (SISTEMAS LINEALES ITERATIVOS)
+# GAUSS-SEIDEL 
 # =============================================================================
 def metodo_gauss_seidel(matriz_texto, inicial_texto, tol, max_iter):
     err = _validar_tol_iter(tol, max_iter)
@@ -3416,7 +3395,7 @@ def metodo_gauss_seidel(matriz_texto, inicial_texto, tol, max_iter):
 
 
 # =============================================================================
-# MÉTODO 16 — NEWTON-RAPHSON PARA SISTEMAS NO LINEALES
+# NEWTON-RAPHSON PARA SISTEMAS NO LINEALES
 # =============================================================================
 def metodo_newton_sistemas(funciones_texto, variables_texto, inicial_texto, tol, max_iter):
     err = _validar_tol_iter(tol, max_iter)
@@ -3587,7 +3566,7 @@ def metodo_newton_sistemas(funciones_texto, variables_texto, inicial_texto, tol,
 
 
 # =============================================================================
-# MÉTODO 15 — INTERPOLACIÓN DE NEWTON (DIFERENCIAS DIVIDIDAS)
+#INTERPOLACIÓN DE NEWTON diferencias divididas
 # =============================================================================
 def metodo_newton_diferencias(puntos_texto, x_eval=None):
     puntos, err = _parse_puntos(puntos_texto, min_n=2, max_n=30, ordenar=True)
@@ -3678,7 +3657,7 @@ def metodo_newton_diferencias(puntos_texto, x_eval=None):
 
 
 # =============================================================================
-# MÉTODO 16 — POLINOMIO DE LAGRANGE
+#  POLINOMIO DE LAGRANGE
 # =============================================================================
 def metodo_lagrange(puntos_texto, x_eval=None, metodo_resolucion="lagrange"):
     puntos, err = _parse_puntos(puntos_texto, min_n=2, max_n=30, ordenar=True)
@@ -3809,7 +3788,7 @@ def metodo_lagrange(puntos_texto, x_eval=None, metodo_resolucion="lagrange"):
 
 
 # =============================================================================
-# MÉTODO 17 — INTERPOLACIÓN CON TRAZADORES CÚBICOS NATURALES
+#  INTERPOLACIÓN CON TRAZADORES CÚBICOS NATURALES
 # =============================================================================
 def metodo_trazadores_cubicos(puntos_texto, x_eval=None):
     puntos, err = _parse_puntos(puntos_texto, min_n=3, max_n=40, ordenar=True)
@@ -3939,7 +3918,7 @@ def metodo_trazadores_cubicos(puntos_texto, x_eval=None):
 
 
 # =============================================================================
-# MÉTODO 18 — REGRESIÓN LINEAL SIMPLE
+#  REGRESIÓN LINEAL SIMPLE
 # =============================================================================
 def metodo_regresion_lineal(puntos_texto, x_eval=None):
     puntos, err = _parse_puntos(puntos_texto, min_n=2, max_n=80, ordenar=True)
@@ -4047,7 +4026,7 @@ def metodo_regresion_lineal(puntos_texto, x_eval=None):
 
 
 # =============================================================================
-# RUTAS FLASK
+# aqui s eponen las ruta de flask que conectan a los metodos con las rutas web
 # =============================================================================
 def _ruta(metodo_fn, template, **kwargs):
     """Helper genérico para rutas POST/GET."""
